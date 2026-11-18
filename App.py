@@ -1,6 +1,5 @@
 import streamlit as st
 from google import genai
-import time
 
 # Page Config
 st.set_page_config(page_title="AI Growth & Ad Creative Engine", page_icon="📈", layout="wide")
@@ -51,29 +50,14 @@ if st.button("Run Audit & Generate Creative Suite"):
                    - Immediate high-margin strategic growth hacks.
                 """
                 
-                # Multi-model fallback rotation to prevent 503 errors
-                models_to_try = ['gemini-3.8-flash', 'gemini-1.5-flash', 'gemini-2.5-flash']
-                response = None
-                last_error = None
-                
-                for model_name in models_to_try:
-                    try:
-                        response = client.models.generate_content(
-                            model=model_name,
-                            contents=prompt
-                        )
-                        if response:
-                            break
-                    except Exception as e:
-                        last_error = e
-                        continue
-                
-                if not response:
-                    raise last_error
+                response = client.models.generate_content(
+                    model='gemini-3.8-flash',
+                    contents=prompt
+                )
                 
                 st.success("Audit & Creative Suite Generated Successfully!")
                 st.markdown("---")
                 st.markdown(response.text)
                 
             except Exception as e:
-                st.error(f"Unable to reach model endpoints due to high server demand. Please try again in a few moments. Details: {e}")
+                st.error(f"An error occurred: {e}")
