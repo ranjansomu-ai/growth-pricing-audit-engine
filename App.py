@@ -24,29 +24,43 @@ if st.button("Run Strategic Audit & Creative Engine"):
     else:
         with st.spinner(f"Analyzing {target_company}, mapping competitors, and generating creative ad mockups..."):
             try:
-                # Configure Gemini API
+                # Configure Gemini API with the correct, stable model name
                 genai.configure(api_key=api_key_input)
-                model = genai.GenerativeModel('gemini-4-hydrogen')
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 prompt = f"""
-                Act as an elite Growth, Performance Marketing, and Pricing Director advising private equity and executive leadership. 
-                Perform a high-value strategic audit and creative playbook for the target company: {target_company} and its top 2 market competitors across 5 pillars.
+                Act as an elite Growth, Performance Marketing, and Pricing Director. 
+                Perform a structured, high-value strategic audit and creative playbook for: {target_company} and its top 2 market competitors across 5 pillars.
 
-                Make the response structured, scannable, and commercially aggressive. Include the following specific elements:
+                MANDATORY FORMATTING: Use tables, bullet points, and distinct visual callouts. Avoid long walls of text.
 
-                1. Executive Scorecard: A quick comparative table scoring each entity out of 100 across the 5 pillars.
-                2. Pillar Breakdown (Performance, Analytics, Pricing, Data, Social Listening):
-                   - Analyze gaps and monetization leakages.
-                   - **Crucial Creative Requirement for Pillar 1 (Performance & Ads):** Provide 2-4 concrete ad mockups matching the brand's tone (mix of Google Search ad copy, Meta Image ad concept, and a Short Video ad hook/script).
-                   - **Crucial Social Listening Requirement for Pillar 5:** Identify recent public sentiment trends, highlighting specific customer complaints to curtail and positive wins to amplify.
-                3. First-Person 90-Day Turnaround Playbook: Conclude with actionable growth hacks framed as how an incoming leader would capture market share.
+                Include these exact sections:
+                
+                1. EXECUTIVE HEALTH SCORECARD: A clean comparison table scoring each entity out of 100 across the 5 pillars.
+                
+                2. PILLAR 1 TO 4 BREAKDOWN:
+                   - Pillar 1 (Performance, SEO, AEO & GEO)
+                   - Pillar 2 (Marketing Analytics & Funnels)
+                   - Pillar 3 (Pricing Strategy & Monetization Leakage)
+                   - Pillar 4 (Data Analytics Maturity)
+                   
+                3. SPECIFIC AD CREATIVE MOCKUPS (For Pillar 1):
+                   Provide 2-4 concrete ad concepts matching the brand's voice:
+                   - **Google Search Ad:** (Headline, Description)
+                   - **Meta Image Ad:** (Visual Concept, Primary Text, CTA)
+                   - **Short Video Hook:** (First 3-second hook & script)
+                   
+                4. SOCIAL LISTENING & SENTIMENT TRIAGE (For Pillar 5):
+                   - **Reputational Threats / Complaints to Curtail:** (Specific customer pain points)
+                   - **Brand Wins / Positive Sentiment to Amplify:** (What to scale into campaigns)
+                   
+                5. FIRST-PERSON 90-DAY TURNAROUND PLAYBOOK:
+                   - Bulleted list of immediate high-margin growth hacks.
                 """
                 
                 response = model.generate_content(prompt)
                 
                 st.success("Strategic Audit & Creative Playbook Generated Successfully!")
-                
-                # Render using clean UI containers
                 st.markdown("---")
                 st.markdown(response.text)
                 
