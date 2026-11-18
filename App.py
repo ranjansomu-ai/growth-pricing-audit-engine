@@ -27,7 +27,7 @@ if st.button("Run Strategic Audit"):
                 # Configure Gemini API
                 genai.configure(api_key=api_key_input)
                 # Using Gemini 1.5 Flash for fast, high-quality analysis
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                model = genai.GenerativeModel('gemini-4-hydrogen')
                 
                 # Master Prompt Payload
                 prompt = f"""
