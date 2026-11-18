@@ -26,7 +26,7 @@ if st.button("Run Strategic Audit & Creative Engine"):
             try:
                 # Configure Gemini API with the correct, stable model name
                 genai.configure(api_key=api_key_input)
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 
                 prompt = f"""
                 Act as an elite Growth, Performance Marketing, and Pricing Director. 
