@@ -51,23 +51,29 @@ if st.button("Run Audit & Generate Creative Suite"):
                    - Immediate high-margin strategic growth hacks.
                 """
                 
-                # Automatic retry loop to handle temporary 503 server traffic spikes
+                # Multi-model fallback rotation to prevent 503 errors
+                models_to_try = ['gemini-3.8-flash', 'gemini-1.5-flash', 'gemini-2.5-flash']
                 response = None
-                for attempt in range(3):
+                last_error = None
+                
+                for model_name in models_to_try:
                     try:
                         response = client.models.generate_content(
-                            model='gemini-3.8-flash',
+                            model=model_name,
                             contents=prompt
                         )
-                        break
-                    except Exception as api_err:
-                        if attempt == 2:
-                            raise api_err
-                        time.sleep(2) # Wait 2 seconds before retrying
+                        if response:
+                            break
+                    except Exception as e:
+                        last_error = e
+                        continue
+                
+                if not response:
+                    raise last_error
                 
                 st.success("Audit & Creative Suite Generated Successfully!")
                 st.markdown("---")
                 st.markdown(response.text)
                 
             except Exception as e:
-                st.error(f"Server is experiencing high traffic. Please wait 10 seconds and click 'Run Audit' again. Details: {e}")
+                st.error(f"Unable to reach model endpoints due to high server demand. Please try again in a few moments. Details: {e}")
