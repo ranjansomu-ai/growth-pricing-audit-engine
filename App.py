@@ -27,10 +27,9 @@ gemini_key = st.sidebar.text_input("Gemini API Key (Paid Billing Enabled)", type
 claude_key = st.sidebar.text_input("Anthropic API Key (Claude - Optional)", type="password")
 
 st.sidebar.header("💾 Credit Saver & Cache Controls")
-generate_images = st.sidebar.checkbox("Enable Brand Image Ads", value=True)
-generate_video = st.sidebar.checkbox("Enable Video Ad Hook", value=True)
+generate_images = st.sidebar.checkbox("Enable Brand Image & Hook Keyframe Ads", value=True)
 force_refresh = st.sidebar.checkbox("Force Refresh (Bypass 2-Day Cache)", value=False)
-st.sidebar.caption("Successful elements are cached for 2 days. If an element fails, only that failed element is regenerated on retry.")
+st.sidebar.caption("Successful elements are cached for 2 days. Failed elements are not cached and retry automatically on the next run.")
 
 # Cache Helpers (Per-Element, 2-Day TTL)
 def _slug(text: str) -> str:
@@ -43,7 +42,6 @@ def _asset_path(company: str, element_key: str, ext: str) -> str:
     return os.path.join(CACHE_DIR, f"{_slug(company)}__{_slug(element_key)}.{ext}")
 
 def load_cached_element(company: str, element_key: str, asset_ext: str | None = None):
-    """Returns cached payload if within 2-day TTL and not forcing refresh; otherwise None."""
     if force_refresh:
         return None
     meta_file = _meta_path(company, element_key)
@@ -66,7 +64,6 @@ def load_cached_element(company: str, element_key: str, asset_ext: str | None = 
         return None
 
 def save_cached_element(company: str, element_key: str, payload: dict, raw_bytes: bytes | None = None, asset_ext: str | None = None):
-    """Saves only successful elements with a current timestamp."""
     meta_file = _meta_path(company, element_key)
     record = dict(payload)
     record["saved_at"] = time.time()
@@ -81,7 +78,8 @@ def save_cached_element(company: str, element_key: str, payload: dict, raw_bytes
 def format_age(saved_at: float) -> str:
     hours = max(0.0, (time.time() - saved_at) / 3600.0)
     if hours < 1:
-        return f"{int(hours * 60)}m ago"
+        mins = max(1, int(hours * 60))
+        return f"{mins}m ago"
     return f"{hours:.1f}h ago"
 
 # Model Callers
@@ -233,77 +231,6 @@ def get_or_generate_image_element(company: str, element_key: str, prompt: str, a
             "error": str(e)
         }
 
-def get_or_generate_video_element(company: str, element_key: str, prompt: str):
-    cached = load_cached_element(company, element_key, asset_ext="mp4")
-    if cached:
-        return {
-            "ok": True,
-            "bytes": cached["bytes"],
-            "from_cache": True,
-            "age": format_age(cached["saved_at"]),
-            "error": None
-        }
-    try:
-        if not gemini_key:
-            raise ValueError("Gemini API key required for video generation.")
-        client = genai.Client(
-            api_key=gemini_key,
-            http_options={"api_version": "v1beta"}
-        )
-        interaction = client.interactions.create(
-            model="gemini-omni-1.2-flash",
-            input=prompt,
-            response_modalities=["VIDEO"],
-            generation_config={
-                "video_config": {
-                    "aspect_ratio": "16:9",
-                    "duration_seconds": 4
-                }
-            }
-        )
-        while getattr(interaction, "status", None) in ("in_progress", "queued", "running"):
-            time.sleep(4)
-            interaction = client.interactions.get(interaction.id)
-
-        raw_video = None
-        output_video = getattr(interaction, "output_video", None)
-        if output_video:
-            if hasattr(output_video, "data") and output_video.data:
-                raw_video = output_video.data.encode("utf-8") if isinstance(output_video.data, str) else output_video.data
-                if isinstance(output_video.data, str):
-                    import base64
-                    raw_video = base64.b64decode(output_video.data)
-            elif hasattr(output_video, "uri") and output_video.uri:
-                raw_video = client.files.download(file=output_video)
-
-        if raw_video is None:
-            for output in getattr(interaction, "outputs", []) or []:
-                if getattr(output, "type", None) == "video" and getattr(output, "data", None):
-                    import base64
-                    data = output.data
-                    raw_video = base64.b64decode(data) if isinstance(data, str) else data
-                    break
-
-        if not raw_video:
-            raise RuntimeError(f"Video output not found (status: {getattr(interaction, 'status', 'unknown')}).")
-
-        save_cached_element(company, element_key, {}, raw_bytes=raw_video, asset_ext="mp4")
-        return {
-            "ok": True,
-            "bytes": raw_video,
-            "from_cache": False,
-            "age": "just now",
-            "error": None
-        }
-    except Exception as e:
-        return {
-            "ok": False,
-            "bytes": None,
-            "from_cache": False,
-            "age": None,
-            "error": str(e)
-        }
-
 # Single Unified Input
 target_company = st.text_input("Target Company Name", placeholder="e.g., Supertails, Enphase Energy, Ather Energy")
 
@@ -353,7 +280,7 @@ if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
 
             img_meta = None
             img_banner = None
-            vid_hook = None
+            img_hook_frame = None
 
             if generate_images:
                 meta_prompt = (
@@ -366,16 +293,14 @@ if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
                     f"Strictly follow this brand design language: {brand_dna} "
                     f"Hero product/service showcase, high visual contrast, clean modern layout."
                 )
+                hook_frame_prompt = (
+                    f"Create the opening 0-second keyframe visual for a 4-second commercial video ad hook for {company}. "
+                    f"Strictly follow this brand design language: {brand_dna} "
+                    f"High-attention visual hook with clear focal subject and space for a bold short headline overlay."
+                )
                 img_meta = get_or_generate_image_element(company, "meta_ad_1x1", meta_prompt, aspect_ratio="1:1")
                 img_banner = get_or_generate_image_element(company, "banner_ad_16x9", banner_prompt, aspect_ratio="16:9")
-
-            if generate_video:
-                vid_prompt = (
-                    f"4-second high-converting commercial social video ad hook for {company}. "
-                    f"Visual style and brand identity: {brand_dna} "
-                    f"Dynamic camera push-in, bright natural commercial lighting, upbeat energetic audio cue."
-                )
-                vid_hook = get_or_generate_video_element(company, "video_hook_4s", vid_prompt)
+                img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9", hook_frame_prompt, aspect_ratio="16:9")
 
             st.session_state["last_audit"] = {
                 "company": company,
@@ -385,14 +310,26 @@ if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
                 "e4": e4,
                 "img_meta": img_meta,
                 "img_banner": img_banner,
-                "vid_hook": vid_hook,
+                "img_hook_frame": img_hook_frame,
             }
 
 # Render Last Audit from Session State
 audit = st.session_state.get("last_audit")
 if audit:
     company = audit["company"]
-    st.success(f"Audit Suite Loaded for **{company}** (2-Day Cache Active)")
+    tracked_items = [
+        audit["e1"], audit["e2"], audit["e3"], audit["e4"],
+        audit.get("img_meta"), audit.get("img_banner"), audit.get("img_hook_frame")
+    ]
+    active_items = [x for x in tracked_items if isinstance(x, dict)]
+    cached_count = sum(1 for x in active_items if x.get("ok") and x.get("from_cache"))
+    fresh_count = sum(1 for x in active_items if x.get("ok") and not x.get("from_cache"))
+    failed_count = sum(1 for x in active_items if not x.get("ok"))
+
+    st.success(
+        f"Audit Suite Loaded for **{company}** • "
+        f"Cache Hits: **{cached_count}** | Freshly Generated: **{fresh_count}** | Failed: **{failed_count}**"
+    )
 
     tab1, tab2, tab3, tab4 = st.tabs([
         "📊 Growth & SEO Scorecard",
@@ -445,14 +382,13 @@ if audit:
                 elif b:
                     st.warning(f"Banner image failed (will retry on next run): {b['error']}")
 
-        if generate_video:
-            st.markdown("**🎬 4-Second Video Ad Hook (16:9)**")
-            v = audit.get("vid_hook")
-            if v and v["ok"]:
-                st.video(v["bytes"])
-                st.caption(f"🕒 {'Cached (' + v['age'] + ')' if v['from_cache'] else 'Freshly Generated'}")
-            elif v:
-                st.warning(f"Video render notice (will retry on next run): {v['error']}")
+            st.markdown("**🎬 4-Second Video Ad Hook — Opening Keyframe & Storyboard (16:9)**")
+            hf = audit.get("img_hook_frame")
+            if hf and hf["ok"]:
+                st.image(hf["bytes"], caption=f"{company} — 4s Video Hook Opening Keyframe (16:9)", use_container_width=True)
+                st.caption(f"🕒 {'Cached (' + hf['age'] + ')' if hf['from_cache'] else 'Freshly Generated'}")
+            elif hf:
+                st.warning(f"Video hook keyframe failed (will retry on next run): {hf['error']}")
 
     with tab4:
         render_text_tab(audit["e4"], "🔍 Click for Rapid Brand Triage Playbook")
