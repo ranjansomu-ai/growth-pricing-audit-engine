@@ -3,6 +3,7 @@ from google import genai
 from google.genai import types
 import anthropic
 from PIL import Image
+from urllib.parse import quote_plus
 import io
 import os
 import json
@@ -164,26 +165,27 @@ def get_or_generate_text_element(company: str, element_key: str, prompt: str, pr
             "error": str(e)
         }
 
-def get_or_generate_brand_dna(company: str):
-    cached = load_cached_element(company, "brand_dna")
+def get_or_generate_brand_intel(company: str):
+    """Fetches structured Brand Design Language & Active Ad Patterns via Search Grounding (cached 2 days)."""
+    cached = load_cached_element(company, "brand_ad_intel_v2")
     if cached:
-        return cached["content"]
-    try:
-        dna, _ = call_gemini(
-            f"""
-            Research {company}'s current brand design language, visual identity, and active performance ads (Meta/Instagram/Google).
-            Return ONLY a concise 2-sentence visual art-direction brief covering:
-            1. Exact brand color palette, UI card aesthetic, and visual tone.
-            2. Authentic target customer/subject setting and key value-prop badge style used in their real ads.
-            Do not include intro text or bullet points.
-            """,
-            use_search=True
-        )
-        dna = dna.strip()
-        save_cached_element(company, "brand_dna", {"content": dna})
-        return dna
-    except Exception:
-        return f"Authentic commercial brand aesthetic for {company}."
+        return {
+            "ok": True,
+            "content": cached["content"],
+            "engine": cached["engine"],
+            "from_cache": True,
+            "age": format_age(cached["saved_at"]),
+            "error": None
+        }
+    prompt = f"""
+    Research {company}'s current brand design language and active ad messaging across Meta Ad Library, Google Ads Transparency Center, Instagram, and Google Search ads.
+    STRICT FORMATTING — Output EXACTLY these 4 punchy bullet points (max 18 words per bullet) and nothing else:
+    - **🎨 Visual Design Language:** [Exact primary/secondary brand colors, card/UI styling, typography mood, and photography style]
+    - **📣 Meta & Social Ad Patterns:** [Dominant visual hooks, offer badges, and creative formats seen in their Meta ads]
+    - **🔍 Google Search & Shopping Messaging:** [Primary headline angles, value props, and CTA patterns in search/shopping ads]
+    - **🎯 Core Audience & Trust Triggers:** [Target persona setting and key credibility signals/social proof used]
+    """
+    return get_or_generate_text_element(company, "brand_ad_intel_v2", prompt, preferred="gemini", use_search=True)
 
 def get_or_generate_image_element(company: str, element_key: str, prompt: str, aspect_ratio: str = "1:1"):
     cached = load_cached_element(company, element_key, asset_ext="png")
@@ -242,7 +244,8 @@ if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
     else:
         company = target_company.strip()
         with st.spinner(f"Checking 2-day cache and running only missing/expired elements for {company}..."):
-            brand_dna = get_or_generate_brand_dna(company) if gemini_key else f"Authentic commercial brand aesthetic for {company}."
+            brand_intel = get_or_generate_brand_intel(company)
+            brand_dna_text = brand_intel["content"] if brand_intel["ok"] else f"Authentic commercial brand aesthetic for {company}."
 
             p1 = f"""
             Act as Chief Growth Officer auditing {company}.
@@ -258,13 +261,16 @@ if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
             - End with '---DEEP_DIVE---' followed by a structured bulleted breakdown of tier optimization and margin expansion tactics.
             """
             p3 = f"""
-            Act as Performance Creative Director for {company}. Brand Visual DNA: {brand_dna}
+            Act as Performance Creative Director for {company}.
+            Current Brand & Ad Baseline:
+            {brand_dna_text}
+
             STRICT FORMATTING:
-            - Output compact, high-converting ad copy in 3 short bulleted blocks:
+            - Output compact, high-converting ad concepts engineered to outperform their current baseline in 3 short bulleted blocks:
               1. Google Search Ad (2 Headlines + 1 Description)
               2. Meta Feed Ad (Primary Text + Headline + CTA)
               3. 4-Second Video Hook (Visual Scene + Voiceover/Text Overlay)
-            - End with '---DEEP_DIVE---' followed by the extracted Brand Visual DNA and creative rationale.
+            - End with '---DEEP_DIVE---' followed by how these concepts evolve {company}'s current Meta & Google ad patterns.
             """
             p4 = f"""
             Act as Brand Reputation Lead for {company}.
@@ -285,17 +291,17 @@ if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
             if generate_images:
                 meta_prompt = (
                     f"Create an authentic high-converting Instagram/Meta feed advertisement creative for {company}. "
-                    f"Strictly follow this brand design language: {brand_dna} "
-                    f"Clean commercial composition, warm authentic photography, minimal clean callout badge, no cluttered text."
+                    f"Strictly align with this brand design language and ad pattern: {brand_dna_text} "
+                    f"Clean commercial composition, authentic photography, minimal clean callout badge, no cluttered text."
                 )
                 banner_prompt = (
                     f"Create a sleek widescreen digital display banner ad creative for {company}. "
-                    f"Strictly follow this brand design language: {brand_dna} "
+                    f"Strictly align with this brand design language and ad pattern: {brand_dna_text} "
                     f"Hero product/service showcase, high visual contrast, clean modern layout."
                 )
                 hook_frame_prompt = (
                     f"Create the opening 0-second keyframe visual for a 4-second commercial video ad hook for {company}. "
-                    f"Strictly follow this brand design language: {brand_dna} "
+                    f"Strictly align with this brand design language and ad pattern: {brand_dna_text} "
                     f"High-attention visual hook with clear focal subject and space for a bold short headline overlay."
                 )
                 img_meta = get_or_generate_image_element(company, "meta_ad_1x1", meta_prompt, aspect_ratio="1:1")
@@ -304,6 +310,7 @@ if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
 
             st.session_state["last_audit"] = {
                 "company": company,
+                "brand_intel": brand_intel,
                 "e1": e1,
                 "e2": e2,
                 "e3": e3,
@@ -318,7 +325,7 @@ audit = st.session_state.get("last_audit")
 if audit:
     company = audit["company"]
     tracked_items = [
-        audit["e1"], audit["e2"], audit["e3"], audit["e4"],
+        audit.get("brand_intel"), audit["e1"], audit["e2"], audit["e3"], audit["e4"],
         audit.get("img_meta"), audit.get("img_banner"), audit.get("img_hook_frame")
     ]
     active_items = [x for x in tracked_items if isinstance(x, dict)]
@@ -358,8 +365,32 @@ if audit:
         render_text_tab(audit["e2"], "🔍 Click for Pricing Tier & Margin Expansion Playbook")
 
     with tab3:
-        render_text_tab(audit["e3"], "🔍 Click for Brand Visual DNA & Creative Rationale")
+        # 1. Top Section: Current Brand Design Language & Active Ad Patterns
+        st.markdown("#### 🧭 Current Brand Design Language & Active Ad Patterns")
+        bi = audit.get("brand_intel")
+        if bi and bi["ok"]:
+            bi_cache = f"Cached ({bi['age']})" if bi["from_cache"] else "Freshly Generated"
+            st.caption(f"⚡ Grounded Web & Ad Intelligence via **{bi['engine']}** • 🕒 {bi_cache}")
+            st.markdown(bi["content"])
+        else:
+            st.info(f"Using baseline brand profile for {company}.")
+
+        q = quote_plus(company)
+        meta_lib_url = f"https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=IN&q={q}&search_type=keyword_unordered"
+        google_trans_url = f"https://adstransparency.google.com/?region=IN&domain={q}"
+        st.markdown(
+            f"🔎 **Verify Live Ad Libraries:** "
+            f"[Open Meta Ad Library for {company}]({meta_lib_url})  |  "
+            f"[Open Google Ads Transparency Center]({google_trans_url})"
+        )
+
         st.markdown("---")
+        # 2. Recommended Next-Gen Ad Copy & Hooks
+        st.markdown("#### ✍️ Recommended Ad Copy & Creative Hooks")
+        render_text_tab(audit["e3"], "🔍 Click for Creative Rationale & Baseline Evolution")
+
+        st.markdown("---")
+        # 3. Generated Brand-Aligned Multimodal Ad Assets
         st.markdown("#### 🖼️ Brand-Aligned Multimodal Ad Assets")
 
         if generate_images:
