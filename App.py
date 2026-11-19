@@ -2,6 +2,9 @@ import streamlit as st
 from google import genai
 from google.genai import types
 import anthropic
+from PIL import Image
+import io
+import time
 
 # Page Config
 st.set_page_config(page_title="AI Growth & Creative Command Center", page_icon="📈", layout="wide")
@@ -9,13 +12,14 @@ st.set_page_config(page_title="AI Growth & Creative Command Center", page_icon="
 # App Header
 st.title("📈 Executive Growth, Pricing & Creative Command Center")
 st.markdown("### Hybrid Multi-Agent Architecture (Gemini + Claude)")
-st.write("Enter a target company once to orchestrate specialized sub-agents with automatic cross-provider failover.")
+st.write("Enter a target company once to orchestrate specialized sub-agents and render live image & video ad assets.")
 
 # Sidebar Configuration
 st.sidebar.header("🔑 API Credentials")
-gemini_key = st.sidebar.text_input("Gemini API Key (Google AI Studio)", type="password")
+gemini_key = st.sidebar.text_input("Gemini API Key (Paid Billing Enabled)", type="password")
 claude_key = st.sidebar.text_input("Anthropic API Key (Claude - Optional)", type="password")
-st.sidebar.caption("Tip: Enter both keys for true hybrid routing + failover, or just one key to run all agents on that provider.")
+generate_media = st.sidebar.checkbox("Generate Live Image & Video Ads", value=True)
+st.sidebar.caption("Uncheck 'Generate Live Image & Video Ads' when testing text-only audits to save media tokens.")
 
 # Helper Functions for Multi-Model Routing & Failover
 def call_gemini(prompt, use_search=False):
@@ -25,7 +29,7 @@ def call_gemini(prompt, use_search=False):
     config = types.GenerateContentConfig(
         tools=[{"google_search": {}}] if use_search else None
     )
-    # Try current production Flash/Hydrogen endpoints in order
+    last_err = None
     for model_id in ["gemini-4-hydrogen", "gemini-3.8-flash"]:
         try:
             res = client.models.generate_content(
@@ -50,7 +54,6 @@ def call_claude(prompt):
     return msg.content[0].text, "Claude (Sonnet 5.5)"
 
 def route_agent(prompt, preferred="gemini", use_search=False):
-    """Routes to preferred provider and automatically fails over to the backup provider."""
     order = ["gemini", "claude"] if preferred == "gemini" else ["claude", "gemini"]
     errors = []
     for provider in order:
@@ -63,6 +66,41 @@ def route_agent(prompt, preferred="gemini", use_search=False):
             errors.append(f"{provider.upper()}: {e}")
     return f"⚠️ Agent temporarily unavailable. Details: {' | '.join(errors)}", "Unavailable"
 
+def generate_ad_image(prompt, aspect_ratio="1:1"):
+    """Generates an image using Nano Banana 2 (gemini-3.1-flash-image)."""
+    client = genai.Client(api_key=gemini_key)
+    response = client.models.generate_content(
+        model="gemini-3.1-flash-image",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_modalities=["IMAGE"],
+            image_config=types.ImageConfig(aspect_ratio=aspect_ratio)
+        )
+    )
+    for part in response.candidates[0].content.parts:
+        if part.inline_data and part.inline_data.data:
+            return Image.open(io.BytesIO(part.inline_data.data))
+    raise RuntimeError("No image bytes returned by model.")
+
+def generate_ad_video(prompt):
+    """Generates a short 4-second video hook using Gemini Omni Flash (gemini-omni-1.2-flash)."""
+    client = genai.Client(api_key=gemini_key)
+    operation = client.models.generate_videos(
+        model="gemini-omni-1.2-flash",
+        prompt=prompt,
+        config=types.GenerateVideosConfig(
+            aspect_ratio="16:9",
+            duration_seconds=4
+        )
+    )
+    while not operation.done:
+        time.sleep(5)
+        operation = client.operations.get(operation)
+    if operation.response and operation.response.generated_videos:
+        gen_video = operation.response.generated_videos[0]
+        return client.files.download(file=gen_video.video)
+    raise RuntimeError("No video returned by model.")
+
 # Single Unified Input
 target_company = st.text_input("Target Company Name", placeholder="e.g., Supertails, Enphase Energy, Ather Energy")
 
@@ -74,7 +112,7 @@ if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
     else:
         with st.spinner(f"Orchestrating specialized agents for {target_company}..."):
             
-            # Agent 1: Growth & SEO/GEO (Prefers Gemini + Live Search Grounding)
+            # Agent 1: Growth & SEO/GEO
             p1 = f"""
             Act as Chief Growth Officer auditing {target_company}.
             STRICT FORMATTING:
@@ -84,7 +122,7 @@ if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
             """
             res1, engine1 = route_agent(p1, preferred="gemini", use_search=True)
 
-            # Agent 2: Pricing & Unit Economics (Prefers Claude for commercial logic)
+            # Agent 2: Pricing & Unit Economics
             p2 = f"""
             Act as VP of Pricing Strategy analyzing {target_company}.
             STRICT FORMATTING:
@@ -93,7 +131,7 @@ if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
             """
             res2, engine2 = route_agent(p2, preferred="claude")
 
-            # Agent 3: Ad Creative Studio (Prefers Claude for copy; media slots ready for Gemini Imagen/Omni)
+            # Agent 3: Ad Creative Studio
             p3 = f"""
             Act as Performance Creative Director for {target_company}.
             STRICT FORMATTING:
@@ -101,11 +139,11 @@ if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
               1. Google Search Ad (2 Headlines + 1 Description)
               2. Meta Feed Ad (Primary Text + Headline + CTA)
               3. 4-Second Video Hook (Visual Scene + Voiceover/Text Overlay)
-            - End with '---DEEP_DIVE---' followed by exact image/video generation prompts ready for API rendering.
+            - End with '---DEEP_DIVE---' followed by exact image/video generation prompts used for rendering.
             """
             res3, engine3 = route_agent(p3, preferred="claude")
 
-            # Agent 4: Social Triage (Prefers Gemini for fast sentiment synthesis)
+            # Agent 4: Social Triage
             p4 = f"""
             Act as Brand Reputation Lead for {target_company}.
             STRICT FORMATTING:
@@ -140,13 +178,42 @@ if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
         with tab3:
             render_tab(res3, engine3, "🔍 Click for Raw Media Generation Prompts")
             st.markdown("---")
-            st.markdown("#### 🖼️ Live Multimodal Ad Slots (Ready for Paid Billing Activation)")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.info("🖼️ **Meta Feed Ad Visual (1:1)** — *Placeholder reserved for `gemini-nano-banana-2.1`*")
-            with col2:
-                st.info("📊 **Display Banner Visual (16:9)** — *Placeholder reserved for `gemini-nano-banana-2.1`*")
-            st.info("🎬 **4-Second Video Hook (16:9)** — *Placeholder reserved for `gemini-omni-1.2-flash`*")
+            st.markdown("#### 🖼️ Live Generated Multimodal Ad Assets")
+
+            if generate_media and gemini_key:
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("**Meta Feed Ad Visual (1:1)**")
+                    with st.spinner("Rendering Meta Feed creative..."):
+                        try:
+                            meta_prompt = f"High-converting commercial Instagram/Meta feed ad visual for {target_company}, vibrant modern studio photography, clean composition, minimal bold visual hook, no cluttered text"
+                            img_meta = generate_ad_image(meta_prompt, aspect_ratio="1:1")
+                            st.image(img_meta, caption=f"{target_company} — Meta Feed Ad (1:1)", use_container_width=True)
+                        except Exception as e:
+                            st.warning(f"Meta image render notice: {e}")
+
+                with col2:
+                    st.markdown("**Display Banner Visual (16:9)**")
+                    with st.spinner("Rendering Display Banner creative..."):
+                        try:
+                            banner_prompt = f"Sleek widescreen digital display banner ad creative for {target_company}, crisp product/service hero shot, modern brand aesthetic, clean layout"
+                            img_banner = generate_ad_image(banner_prompt, aspect_ratio="16:9")
+                            st.image(img_banner, caption=f"{target_company} — Display Banner (16:9)", use_container_width=True)
+                        except Exception as e:
+                            st.warning(f"Banner image render notice: {e}")
+
+                st.markdown("**🎬 4-Second Video Ad Hook (16:9 with Native Audio)**")
+                with st.spinner("Rendering 4-second video hook (usually takes 15–40 seconds)..."):
+                    try:
+                        vid_prompt = f"Cinematic 4-second commercial social video ad hook for {target_company}, dynamic camera push-in, bright commercial lighting, energetic upbeat background audio"
+                        video_bytes = generate_ad_video(vid_prompt)
+                        st.video(video_bytes)
+                    except Exception as e:
+                        st.warning(f"Video render notice: {e}")
+            elif not gemini_key:
+                st.info("Enter your Gemini API Key in the sidebar to render live images and video hooks.")
+            else:
+                st.info("Live media generation is paused via the sidebar toggle.")
 
         with tab4:
             render_tab(res4, engine4, "🔍 Click for Rapid Brand Triage Playbook")
