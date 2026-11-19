@@ -4,27 +4,88 @@ from google.genai import types
 import anthropic
 from PIL import Image
 import io
-import base64
+import os
+import json
 import time
+import re
 
 # Page Config
 st.set_page_config(page_title="AI Growth & Creative Command Center", page_icon="📈", layout="wide")
 
+CACHE_DIR = ".audit_cache"
+TTL_SECONDS = 2 * 24 * 3600  # 2 days (48 hours)
+os.makedirs(CACHE_DIR, exist_ok=True)
+
 # App Header
 st.title("📈 Executive Growth, Pricing & Creative Command Center")
 st.markdown("### Hybrid Multi-Agent Architecture (Gemini + Claude)")
-st.write("Enter a target company once to orchestrate specialized sub-agents and render brand-aligned image & video ad assets.")
+st.write("Enter a target company once to orchestrate specialized sub-agents with 2-day per-element caching and selective retry.")
 
 # Sidebar Configuration
 st.sidebar.header("🔑 API Credentials")
 gemini_key = st.sidebar.text_input("Gemini API Key (Paid Billing Enabled)", type="password")
 claude_key = st.sidebar.text_input("Anthropic API Key (Claude - Optional)", type="password")
-generate_images = st.sidebar.checkbox("Generate Live Brand Image Ads", value=True)
-generate_video = st.sidebar.checkbox("Generate Live Video Ad Hook (Omni Flash)", value=True)
-st.sidebar.caption("Tip: Toggle media checkboxes off while testing text-only audits to save media credits.")
 
-# Helper Functions for Multi-Model Routing & Failover
-def call_gemini(prompt, use_search=False):
+st.sidebar.header("💾 Credit Saver & Cache Controls")
+generate_images = st.sidebar.checkbox("Enable Brand Image Ads", value=True)
+generate_video = st.sidebar.checkbox("Enable Video Ad Hook", value=True)
+force_refresh = st.sidebar.checkbox("Force Refresh (Bypass 2-Day Cache)", value=False)
+st.sidebar.caption("Successful elements are cached for 2 days. If an element fails, only that failed element is regenerated on retry.")
+
+# Cache Helpers (Per-Element, 2-Day TTL)
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", text.strip().lower()).strip("_") or "default"
+
+def _meta_path(company: str, element_key: str) -> str:
+    return os.path.join(CACHE_DIR, f"{_slug(company)}__{_slug(element_key)}.json")
+
+def _asset_path(company: str, element_key: str, ext: str) -> str:
+    return os.path.join(CACHE_DIR, f"{_slug(company)}__{_slug(element_key)}.{ext}")
+
+def load_cached_element(company: str, element_key: str, asset_ext: str | None = None):
+    """Returns cached payload if within 2-day TTL and not forcing refresh; otherwise None."""
+    if force_refresh:
+        return None
+    meta_file = _meta_path(company, element_key)
+    if not os.path.exists(meta_file):
+        return None
+    try:
+        with open(meta_file, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+        saved_at = float(meta.get("saved_at", 0))
+        if (time.time() - saved_at) > TTL_SECONDS:
+            return None
+        if asset_ext:
+            asset_file = _asset_path(company, element_key, asset_ext)
+            if not os.path.exists(asset_file):
+                return None
+            with open(asset_file, "rb") as af:
+                meta["bytes"] = af.read()
+        return meta
+    except Exception:
+        return None
+
+def save_cached_element(company: str, element_key: str, payload: dict, raw_bytes: bytes | None = None, asset_ext: str | None = None):
+    """Saves only successful elements with a current timestamp."""
+    meta_file = _meta_path(company, element_key)
+    record = dict(payload)
+    record["saved_at"] = time.time()
+    if asset_ext and raw_bytes is not None:
+        asset_file = _asset_path(company, element_key, asset_ext)
+        with open(asset_file, "wb") as af:
+            af.write(raw_bytes)
+        record["asset_ext"] = asset_ext
+    with open(meta_file, "w", encoding="utf-8") as f:
+        json.dump(record, f)
+
+def format_age(saved_at: float) -> str:
+    hours = max(0.0, (time.time() - saved_at) / 3600.0)
+    if hours < 1:
+        return f"{int(hours * 60)}m ago"
+    return f"{hours:.1f}h ago"
+
+# Model Callers
+def call_gemini(prompt: str, use_search: bool = False):
     if not gemini_key:
         raise ValueError("Gemini API key not provided.")
     client = genai.Client(api_key=gemini_key)
@@ -39,12 +100,14 @@ def call_gemini(prompt, use_search=False):
                 contents=prompt,
                 config=config
             )
+            if not res or not res.text:
+                raise RuntimeError(f"Empty response from {model_id}")
             return res.text, f"Gemini ({model_id})"
         except Exception as e:
             last_err = e
     raise last_err
 
-def call_claude(prompt):
+def call_claude(prompt: str):
     if not claude_key:
         raise ValueError("Claude API key not provided.")
     client = anthropic.Anthropic(api_key=claude_key)
@@ -53,9 +116,12 @@ def call_claude(prompt):
         max_tokens=1500,
         messages=[{"role": "user", "content": prompt}]
     )
-    return msg.content[0].text, "Claude (Sonnet 5.5)"
+    text = msg.content[0].text if msg.content else ""
+    if not text:
+        raise RuntimeError("Empty response from Claude.")
+    return text, "Claude (Sonnet 5.5)"
 
-def route_agent(prompt, preferred="gemini", use_search=False):
+def route_agent(prompt: str, preferred: str = "gemini", use_search: bool = False):
     order = ["gemini", "claude"] if preferred == "gemini" else ["claude", "gemini"]
     errors = []
     for provider in order:
@@ -66,62 +132,177 @@ def route_agent(prompt, preferred="gemini", use_search=False):
                 return call_claude(prompt)
         except Exception as e:
             errors.append(f"{provider.upper()}: {e}")
-    return f"⚠️ Agent temporarily unavailable. Details: {' | '.join(errors)}", "Unavailable"
+    raise RuntimeError(" | ".join(errors) if errors else "No API key available.")
 
-def extract_brand_visual_dna(company):
-    """Uses live Search grounding to extract brand colors, typography mood, customer persona, and active ad style."""
-    prompt = f"""
-    Research {company}'s current brand design language, visual identity, and active performance ads (Meta/Instagram/Google).
-    Return ONLY a concise 2-sentence visual art-direction brief covering:
-    1. Exact brand color palette, UI card aesthetic, and visual tone.
-    2. Authentic target customer/subject setting and key value-prop badge style used in their real ads.
-    Do not include intro text or bullet points.
-    """
-    dna, _ = call_gemini(prompt, use_search=True)
-    return dna.strip()
-
-def generate_ad_image(prompt, aspect_ratio="1:1"):
-    """Generates a brand-aligned image using Nano Banana 2 (gemini-3.1-flash-image)."""
-    client = genai.Client(api_key=gemini_key)
-    response = client.models.generate_content(
-        model="gemini-3.1-flash-image",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_modalities=["IMAGE"],
-            image_config=types.ImageConfig(aspect_ratio=aspect_ratio)
-        )
-    )
-    for part in response.candidates[0].content.parts:
-        if part.inline_data and part.inline_data.data:
-            return Image.open(io.BytesIO(part.inline_data.data))
-    raise RuntimeError("No image bytes returned by model.")
-
-def generate_ad_video_omni(prompt):
-    """Generates a short video hook via Gemini Omni Flash Interactions API (Developer API compatible)."""
-    client = genai.Client(api_key=gemini_key)
-    interaction = client.interactions.create(
-        model="gemini-omni-1.2-flash",
-        input=prompt,
-        response_modalities=["VIDEO"],
-        generation_config={
-            "video_config": {
-                "aspect_ratio": "16:9",
-                "duration_seconds": 4
-            }
+def get_or_generate_text_element(company: str, element_key: str, prompt: str, preferred: str = "gemini", use_search: bool = False):
+    cached = load_cached_element(company, element_key)
+    if cached:
+        return {
+            "ok": True,
+            "content": cached["content"],
+            "engine": cached["engine"],
+            "from_cache": True,
+            "age": format_age(cached["saved_at"]),
+            "error": None
         }
-    )
-    # Poll if background processing is returned
-    while getattr(interaction, "status", None) in ("in_progress", "queued", "running"):
-        time.sleep(4)
-        interaction = client.interactions.get(interaction.id)
+    try:
+        content, engine = route_agent(prompt, preferred=preferred, use_search=use_search)
+        save_cached_element(company, element_key, {"content": content, "engine": engine})
+        return {
+            "ok": True,
+            "content": content,
+            "engine": engine,
+            "from_cache": False,
+            "age": "just now",
+            "error": None
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "content": None,
+            "engine": "Unavailable",
+            "from_cache": False,
+            "age": None,
+            "error": str(e)
+        }
 
-    for output in getattr(interaction, "outputs", []) or []:
-        if getattr(output, "type", None) == "video" and getattr(output, "data", None):
-            video_data = output.data
-            if isinstance(video_data, str):
-                return base64.b64decode(video_data)
-            return video_data
-    raise RuntimeError(f"Video output not found in interaction response (status: {getattr(interaction, 'status', 'unknown')}).")
+def get_or_generate_brand_dna(company: str):
+    cached = load_cached_element(company, "brand_dna")
+    if cached:
+        return cached["content"]
+    try:
+        dna, _ = call_gemini(
+            f"""
+            Research {company}'s current brand design language, visual identity, and active performance ads (Meta/Instagram/Google).
+            Return ONLY a concise 2-sentence visual art-direction brief covering:
+            1. Exact brand color palette, UI card aesthetic, and visual tone.
+            2. Authentic target customer/subject setting and key value-prop badge style used in their real ads.
+            Do not include intro text or bullet points.
+            """,
+            use_search=True
+        )
+        dna = dna.strip()
+        save_cached_element(company, "brand_dna", {"content": dna})
+        return dna
+    except Exception:
+        return f"Authentic commercial brand aesthetic for {company}."
+
+def get_or_generate_image_element(company: str, element_key: str, prompt: str, aspect_ratio: str = "1:1"):
+    cached = load_cached_element(company, element_key, asset_ext="png")
+    if cached:
+        return {
+            "ok": True,
+            "bytes": cached["bytes"],
+            "from_cache": True,
+            "age": format_age(cached["saved_at"]),
+            "error": None
+        }
+    try:
+        if not gemini_key:
+            raise ValueError("Gemini API key required for image generation.")
+        client = genai.Client(api_key=gemini_key)
+        response = client.models.generate_content(
+            model="gemini-3.1-flash-image",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE"],
+                image_config=types.ImageConfig(aspect_ratio=aspect_ratio)
+            )
+        )
+        for part in response.candidates[0].content.parts:
+            if part.inline_data and part.inline_data.data:
+                img = Image.open(io.BytesIO(part.inline_data.data))
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
+                raw_png = buf.getvalue()
+                save_cached_element(company, element_key, {}, raw_bytes=raw_png, asset_ext="png")
+                return {
+                    "ok": True,
+                    "bytes": raw_png,
+                    "from_cache": False,
+                    "age": "just now",
+                    "error": None
+                }
+        raise RuntimeError("No image bytes returned by model.")
+    except Exception as e:
+        return {
+            "ok": False,
+            "bytes": None,
+            "from_cache": False,
+            "age": None,
+            "error": str(e)
+        }
+
+def get_or_generate_video_element(company: str, element_key: str, prompt: str):
+    cached = load_cached_element(company, element_key, asset_ext="mp4")
+    if cached:
+        return {
+            "ok": True,
+            "bytes": cached["bytes"],
+            "from_cache": True,
+            "age": format_age(cached["saved_at"]),
+            "error": None
+        }
+    try:
+        if not gemini_key:
+            raise ValueError("Gemini API key required for video generation.")
+        client = genai.Client(
+            api_key=gemini_key,
+            http_options={"api_version": "v1beta"}
+        )
+        interaction = client.interactions.create(
+            model="gemini-omni-1.2-flash",
+            input=prompt,
+            response_modalities=["VIDEO"],
+            generation_config={
+                "video_config": {
+                    "aspect_ratio": "16:9",
+                    "duration_seconds": 4
+                }
+            }
+        )
+        while getattr(interaction, "status", None) in ("in_progress", "queued", "running"):
+            time.sleep(4)
+            interaction = client.interactions.get(interaction.id)
+
+        raw_video = None
+        output_video = getattr(interaction, "output_video", None)
+        if output_video:
+            if hasattr(output_video, "data") and output_video.data:
+                raw_video = output_video.data.encode("utf-8") if isinstance(output_video.data, str) else output_video.data
+                if isinstance(output_video.data, str):
+                    import base64
+                    raw_video = base64.b64decode(output_video.data)
+            elif hasattr(output_video, "uri") and output_video.uri:
+                raw_video = client.files.download(file=output_video)
+
+        if raw_video is None:
+            for output in getattr(interaction, "outputs", []) or []:
+                if getattr(output, "type", None) == "video" and getattr(output, "data", None):
+                    import base64
+                    data = output.data
+                    raw_video = base64.b64decode(data) if isinstance(data, str) else data
+                    break
+
+        if not raw_video:
+            raise RuntimeError(f"Video output not found (status: {getattr(interaction, 'status', 'unknown')}).")
+
+        save_cached_element(company, element_key, {}, raw_bytes=raw_video, asset_ext="mp4")
+        return {
+            "ok": True,
+            "bytes": raw_video,
+            "from_cache": False,
+            "age": "just now",
+            "error": None
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "bytes": None,
+            "from_cache": False,
+            "age": None,
+            "error": str(e)
+        }
 
 # Single Unified Input
 target_company = st.text_input("Target Company Name", placeholder="e.g., Supertails, Enphase Energy, Ather Energy")
@@ -129,41 +310,28 @@ target_company = st.text_input("Target Company Name", placeholder="e.g., Superta
 if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
     if not gemini_key and not claude_key:
         st.error("Please enter at least one API key (Gemini or Claude) in the sidebar.")
-    elif not target_company:
+    elif not target_company.strip():
         st.warning("Please enter a target company name.")
     else:
-        with st.spinner(f"Orchestrating specialized agents & brand DNA extraction for {target_company}..."):
-            
-            # Extract Brand Visual DNA first if Gemini key is available
-            brand_dna = f"Authentic commercial brand aesthetic for {target_company}."
-            if gemini_key:
-                try:
-                    brand_dna = extract_brand_visual_dna(target_company)
-                except Exception:
-                    pass
+        company = target_company.strip()
+        with st.spinner(f"Checking 2-day cache and running only missing/expired elements for {company}..."):
+            brand_dna = get_or_generate_brand_dna(company) if gemini_key else f"Authentic commercial brand aesthetic for {company}."
 
-            # Agent 1: Growth & SEO/GEO
             p1 = f"""
-            Act as Chief Growth Officer auditing {target_company}.
+            Act as Chief Growth Officer auditing {company}.
             STRICT FORMATTING:
             - Start with a compact Markdown scorecard table (Pillar | Score /100 | Key Gap) across Paid Search, SEO/GEO, Funnel CRO, Pricing, and Social.
             - Follow with EXACTLY 4 short, hard-hitting bullet points (max 15 words per bullet) on top growth levers.
             - End with '---DEEP_DIVE---' followed by a concise bulleted breakdown of AEO/GEO visibility and competitor gaps.
             """
-            res1, engine1 = route_agent(p1, preferred="gemini", use_search=True)
-
-            # Agent 2: Pricing & Unit Economics
             p2 = f"""
-            Act as VP of Pricing Strategy analyzing {target_company}.
+            Act as VP of Pricing Strategy analyzing {company}.
             STRICT FORMATTING:
             - Output EXACTLY 4 punchy bullet points (max 15 words per bullet) identifying monetization leaks, LTV:CAC friction, and bundling opportunities.
             - End with '---DEEP_DIVE---' followed by a structured bulleted breakdown of tier optimization and margin expansion tactics.
             """
-            res2, engine2 = route_agent(p2, preferred="claude")
-
-            # Agent 3: Ad Creative Studio
             p3 = f"""
-            Act as Performance Creative Director for {target_company}. Brand Visual DNA: {brand_dna}
+            Act as Performance Creative Director for {company}. Brand Visual DNA: {brand_dna}
             STRICT FORMATTING:
             - Output compact, high-converting ad copy in 3 short bulleted blocks:
               1. Google Search Ad (2 Headlines + 1 Description)
@@ -171,93 +339,120 @@ if st.button("🚀 Orchestrate Hybrid Multi-Agent Audit"):
               3. 4-Second Video Hook (Visual Scene + Voiceover/Text Overlay)
             - End with '---DEEP_DIVE---' followed by the extracted Brand Visual DNA and creative rationale.
             """
-            res3, engine3 = route_agent(p3, preferred="claude")
-
-            # Agent 4: Social Triage
             p4 = f"""
-            Act as Brand Reputation Lead for {target_company}.
+            Act as Brand Reputation Lead for {company}.
             STRICT FORMATTING:
             - Output 2 short bullet points under '🚨 Friction to Curtail' and 2 short bullet points under '🚀 Wins to Amplify' (max 15 words per bullet).
             - End with '---DEEP_DIVE---' followed by a 3-step rapid response playbook.
             """
-            res4, engine4 = route_agent(p4, preferred="gemini", use_search=True)
 
-        st.success(f"Multi-Agent Suite Complete for {target_company}!")
-        
-        tab1, tab2, tab3, tab4 = st.tabs([
-            "📊 Growth & SEO Scorecard",
-            "💰 Pricing & Unit Economics",
-            "🎨 Ad Creative Studio",
-            "🚨 Social & Brand Triage"
-        ])
+            e1 = get_or_generate_text_element(company, "agent1_scorecard", p1, preferred="gemini", use_search=True)
+            e2 = get_or_generate_text_element(company, "agent2_pricing", p2, preferred="claude")
+            e3 = get_or_generate_text_element(company, "agent3_creative", p3, preferred="claude")
+            e4 = get_or_generate_text_element(company, "agent4_social", p4, preferred="gemini", use_search=True)
 
-        def render_tab(content, engine_label, expander_title):
-            st.caption(f"⚡ Powered by: **{engine_label}**")
-            parts = content.split("---DEEP_DIVE---")
-            st.markdown(parts[0].strip())
-            if len(parts) > 1 and parts[1].strip():
-                with st.expander(expander_title):
-                    st.markdown(parts[1].strip())
+            img_meta = None
+            img_banner = None
+            vid_hook = None
 
-        with tab1:
-            render_tab(res1, engine1, "🔍 Click for Deep-Dive SEO/GEO & Competitor Analysis")
+            if generate_images:
+                meta_prompt = (
+                    f"Create an authentic high-converting Instagram/Meta feed advertisement creative for {company}. "
+                    f"Strictly follow this brand design language: {brand_dna} "
+                    f"Clean commercial composition, warm authentic photography, minimal clean callout badge, no cluttered text."
+                )
+                banner_prompt = (
+                    f"Create a sleek widescreen digital display banner ad creative for {company}. "
+                    f"Strictly follow this brand design language: {brand_dna} "
+                    f"Hero product/service showcase, high visual contrast, clean modern layout."
+                )
+                img_meta = get_or_generate_image_element(company, "meta_ad_1x1", meta_prompt, aspect_ratio="1:1")
+                img_banner = get_or_generate_image_element(company, "banner_ad_16x9", banner_prompt, aspect_ratio="16:9")
 
-        with tab2:
-            render_tab(res2, engine2, "🔍 Click for Pricing Tier & Margin Expansion Playbook")
+            if generate_video:
+                vid_prompt = (
+                    f"4-second high-converting commercial social video ad hook for {company}. "
+                    f"Visual style and brand identity: {brand_dna} "
+                    f"Dynamic camera push-in, bright natural commercial lighting, upbeat energetic audio cue."
+                )
+                vid_hook = get_or_generate_video_element(company, "video_hook_4s", vid_prompt)
 
-        with tab3:
-            render_tab(res3, engine3, "🔍 Click for Brand Visual DNA & Creative Rationale")
-            st.markdown("---")
-            st.markdown("#### 🖼️ Live Brand-Aligned Multimodal Ad Assets")
+            st.session_state["last_audit"] = {
+                "company": company,
+                "e1": e1,
+                "e2": e2,
+                "e3": e3,
+                "e4": e4,
+                "img_meta": img_meta,
+                "img_banner": img_banner,
+                "vid_hook": vid_hook,
+            }
 
-            if gemini_key and (generate_images or generate_video):
-                if generate_images:
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.markdown("**Meta Feed Ad Visual (1:1)**")
-                        with st.spinner("Rendering brand-matched Meta Feed creative..."):
-                            try:
-                                meta_prompt = (
-                                    f"Create an authentic high-converting Instagram/Meta feed advertisement creative for {target_company}. "
-                                    f"Strictly follow this brand design language: {brand_dna} "
-                                    f"Clean commercial composition, warm authentic photography, minimal clean callout badge, no cluttered text."
-                                )
-                                img_meta = generate_ad_image(meta_prompt, aspect_ratio="1:1")
-                                st.image(img_meta, caption=f"{target_company} — Meta Feed Ad (1:1)", use_container_width=True)
-                            except Exception as e:
-                                st.warning(f"Meta image render notice: {e}")
+# Render Last Audit from Session State
+audit = st.session_state.get("last_audit")
+if audit:
+    company = audit["company"]
+    st.success(f"Audit Suite Loaded for **{company}** (2-Day Cache Active)")
 
-                    with col2:
-                        st.markdown("**Display Banner Visual (16:9)**")
-                        with st.spinner("Rendering brand-matched Display Banner..."):
-                            try:
-                                banner_prompt = (
-                                    f"Create a sleek widescreen digital display banner ad creative for {target_company}. "
-                                    f"Strictly follow this brand design language: {brand_dna} "
-                                    f"Hero product/service showcase, high visual contrast, clean modern layout."
-                                )
-                                img_banner = generate_ad_image(banner_prompt, aspect_ratio="16:9")
-                                st.image(img_banner, caption=f"{target_company} — Display Banner (16:9)", use_container_width=True)
-                            except Exception as e:
-                                st.warning(f"Banner image render notice: {e}")
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📊 Growth & SEO Scorecard",
+        "💰 Pricing & Unit Economics",
+        "🎨 Ad Creative Studio",
+        "🚨 Social & Brand Triage"
+    ])
 
-                if generate_video:
-                    st.markdown("**🎬 4-Second Video Ad Hook (16:9 via Gemini Omni Flash)**")
-                    with st.spinner("Rendering 4-second video hook via Interactions API (15–40 seconds)..."):
-                        try:
-                            vid_prompt = (
-                                f"4-second high-converting commercial social video ad hook for {target_company}. "
-                                f"Visual style and brand identity: {brand_dna} "
-                                f"Dynamic camera push-in, bright natural commercial lighting, upbeat energetic audio cue."
-                            )
-                            video_bytes = generate_ad_video_omni(vid_prompt)
-                            st.video(video_bytes)
-                        except Exception as e:
-                            st.warning(f"Video render notice: {e}")
-            elif not gemini_key:
-                st.info("Enter your Gemini API Key in the sidebar to render live brand-aligned images and video hooks.")
-            else:
-                st.info("Live media generation is paused via the sidebar toggles.")
+    def render_text_tab(item, expander_title):
+        if not item["ok"]:
+            st.error(f"This element failed to generate: {item['error']}")
+            st.caption("Click '🚀 Orchestrate Hybrid Multi-Agent Audit' again to retry only this failed element.")
+            return
+        cache_tag = f"Cached ({item['age']})" if item["from_cache"] else "Freshly Generated"
+        st.caption(f"⚡ Powered by: **{item['engine']}** • 🕒 {cache_tag}")
+        parts = item["content"].split("---DEEP_DIVE---")
+        st.markdown(parts[0].strip())
+        if len(parts) > 1 and parts[1].strip():
+            with st.expander(expander_title):
+                st.markdown(parts[1].strip())
 
-        with tab4:
-            render_tab(res4, engine4, "🔍 Click for Rapid Brand Triage Playbook")
+    with tab1:
+        render_text_tab(audit["e1"], "🔍 Click for Deep-Dive SEO/GEO & Competitor Analysis")
+
+    with tab2:
+        render_text_tab(audit["e2"], "🔍 Click for Pricing Tier & Margin Expansion Playbook")
+
+    with tab3:
+        render_text_tab(audit["e3"], "🔍 Click for Brand Visual DNA & Creative Rationale")
+        st.markdown("---")
+        st.markdown("#### 🖼️ Brand-Aligned Multimodal Ad Assets")
+
+        if generate_images:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**Meta Feed Ad Visual (1:1)**")
+                m = audit.get("img_meta")
+                if m and m["ok"]:
+                    st.image(m["bytes"], caption=f"{company} — Meta Feed Ad (1:1)", use_container_width=True)
+                    st.caption(f"🕒 {'Cached (' + m['age'] + ')' if m['from_cache'] else 'Freshly Generated'}")
+                elif m:
+                    st.warning(f"Meta image failed (will retry on next run): {m['error']}")
+
+            with col2:
+                st.markdown("**Display Banner Visual (16:9)**")
+                b = audit.get("img_banner")
+                if b and b["ok"]:
+                    st.image(b["bytes"], caption=f"{company} — Display Banner (16:9)", use_container_width=True)
+                    st.caption(f"🕒 {'Cached (' + b['age'] + ')' if b['from_cache'] else 'Freshly Generated'}")
+                elif b:
+                    st.warning(f"Banner image failed (will retry on next run): {b['error']}")
+
+        if generate_video:
+            st.markdown("**🎬 4-Second Video Ad Hook (16:9)**")
+            v = audit.get("vid_hook")
+            if v and v["ok"]:
+                st.video(v["bytes"])
+                st.caption(f"🕒 {'Cached (' + v['age'] + ')' if v['from_cache'] else 'Freshly Generated'}")
+            elif v:
+                st.warning(f"Video render notice (will retry on next run): {v['error']}")
+
+    with tab4:
+        render_text_tab(audit["e4"], "🔍 Click for Rapid Brand Triage Playbook")
