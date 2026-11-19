@@ -588,4 +588,338 @@ def build_executive_pdf(audit_data: dict) -> bytes:
 
     if audit_data["e_paid"]["ok"]:
         pdf.section_title("2. Paid Search, Shopping & Funnel CRO Diagnostics")
-        pdf.render_markdown_block(audit
+        pdf.render_markdown_block(audit_data["e_paid"]["content"])
+
+    if audit_data["e2"]["ok"]:
+        pdf.section_title("3. Pricing Architecture & Unit Economics")
+        pdf.render_markdown_block(audit_data["e2"]["content"])
+
+    pdf.section_title("4. Brand Design Language & Ad Creative Strategy")
+    if audit_data.get("brand_intel") and audit_data["brand_intel"]["ok"]:
+        pdf.render_markdown_block(audit_data["brand_intel"]["content"])
+        pdf.ln(2)
+    if audit_data["e3"]["ok"]:
+        pdf.render_markdown_block(audit_data["e3"]["content"])
+
+    if audit_data["e4"]["ok"]:
+        pdf.section_title("5. Brand Reputation & Social Sentiment Triage")
+        pdf.render_markdown_block(audit_data["e4"]["content"])
+
+    images_to_embed = [
+        ("Meta Feed Ad Creative (1:1)", audit_data.get("img_meta"), 95),
+        ("Display Banner Ad Creative (16:9)", audit_data.get("img_banner"), 150),
+        ("4-Second Video Hook Opening Keyframe (16:9)", audit_data.get("img_hook_frame"), 150),
+    ]
+    valid_imgs = [(label, item, w) for label, item, w in images_to_embed if item and item.get("ok") and item.get("bytes")]
+
+    if valid_imgs:
+        pdf.add_page()
+        pdf.section_title("6. Generated Brand-Aligned Ad Mockups")
+        temp_files = []
+        try:
+            for label, item, target_w in valid_imgs:
+                if pdf.get_y() > 205:
+                    pdf.add_page()
+                pdf.set_font("Helvetica", "B", 10.5)
+                pdf.set_text_color(29, 29, 31)
+                pdf.cell(0, 7, _clean_pdf_text(label), new_x="LMARGIN", new_y="NEXT")
+
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+                tmp.write(item["bytes"])
+                tmp.close()
+                temp_files.append(tmp.name)
+
+                pdf.image(tmp.name, w=target_w)
+                pdf.ln(6)
+        finally:
+            for path in temp_files:
+                if os.path.exists(path):
+                    os.remove(path)
+
+    raw_out = pdf.output()
+    return bytes(raw_out) if isinstance(raw_out, (bytes, bytearray)) else raw_out.encode("latin-1")
+
+# -----------------------------------------------------------------------------
+# UNIFIED SEARCH BAR & ACTION ROW
+# -----------------------------------------------------------------------------
+col_input, col_btn = st.columns([3.2, 1.3], vertical_alignment="bottom")
+with col_input:
+    target_company = st.text_input(
+        "Target Company",
+        placeholder="Enter a brand (e.g., Supertails, Enphase Energy, Ather Energy)",
+        label_visibility="collapsed"
+    )
+with col_btn:
+    run_clicked = st.button("Run Intelligence Suite", use_container_width=True)
+
+if run_clicked:
+    if not gemini_key and not claude_key:
+        st.error("Please enter at least one API key (Gemini or Claude) in the sidebar.")
+    elif not target_company.strip():
+        st.warning("Please enter a target company name.")
+    else:
+        company = target_company.strip()
+        with st.spinner(f"Orchestrating 5 specialized sub-agents for {company}..."):
+            brand_intel = get_or_generate_brand_intel(company)
+            brand_dna_text = brand_intel["content"] if brand_intel["ok"] else f"Authentic commercial brand aesthetic for {company}."
+
+            # Agent 1: Dedicated SEO, AEO & GEO Audit
+            p1 = f"""
+            Act as Principal SEO, AEO (Answer Engine Optimization), and GEO (Generative Engine Optimization) Architect auditing {company}.
+            STRICT FORMATTING:
+            - Start with a compact Markdown scorecard table with EXACT columns:
+              | Search Pillar | Score /100 | Observable Diagnostic Signal | Primary Gap |
+              Rows MUST be:
+              1. Technical & Programmatic SEO (crawl architecture, faceted filters, out-of-stock/SKU indexation)
+              2. AEO (AI Overviews, Featured Snippets, high-intent Q&A ownership)
+              3. GEO (LLM recommendation share-of-voice & citation sentiment across Gemini/ChatGPT/Perplexity)
+              4. Entity & Local Schema (Organization, Product, Medical/Service schema & local footprint)
+              5. Off-Site Consensus & Digital PR (Reddit, Trustpilot, authoritative third-party mentions)
+            - Follow with EXACTLY 4 short, hard-hitting bullet points (max 16 words per bullet) on highest-ROI organic search levers.
+            - End with '---DEEP_DIVE---' followed by:
+              1. A compact 4-row **AI Prompt Visibility Matrix** table (| High-Intent Buyer Prompt | Current AI Winner | {company} Vulnerability | Asset Needed to Win |)
+              2. Concise technical & programmatic SEO fixes (schema types, faceted URL canonicalization, and off-site consensus repair).
+            """
+
+            # Agent 2: Dedicated Paid Search, Shopping & Funnel CRO Audit
+            p_paid = f"""
+            Act as VP of Performance Marketing & Conversion Rate Optimization (CRO) auditing {company}.
+            STRICT FORMATTING:
+            - Start with a compact Markdown scorecard table with EXACT columns:
+              | Paid & Funnel Pillar | Score /100 | Diagnostic Benchmark | Primary Leakage |
+              Rows MUST be:
+              1. Non-Brand Search & Shopping Efficiency (marketplace & quick-commerce ROAS pressure)
+              2. Paid Social Acquisition & Audience Fatigue (Meta prospecting vs. retargeting efficiency)
+              3. Landing Page & Product-to-Cart CRO (mobile speed, trust cues, SKU discovery)
+              4. Checkout, Booking & Post-Click Friction (payment/booking drop-offs, delivery SLA clarity)
+            - Follow with EXACTLY 4 short, hard-hitting bullet points (max 16 words per bullet) on immediate ROAS and conversion lifts.
+            - End with '---DEEP_DIVE---' followed by a bulleted breakdown of feed/bidding segmentation, high-intent landing page experiments, and checkout friction fixes.
+            """
+
+            # Agent 3: Pricing & Unit Economics
+            p2 = f"""
+            Act as VP of Pricing Strategy analyzing {company}.
+            STRICT FORMATTING:
+            - Output EXACTLY 4 punchy bullet points (max 15 words per bullet) identifying monetization leaks, LTV:CAC friction, and bundling opportunities.
+            - End with '---DEEP_DIVE---' followed by a structured bulleted breakdown of tier optimization, subscription lock-in, and private-label margin expansion tactics.
+            """
+
+            # Agent 4: Ad Creative Studio
+            p3 = f"""
+            Act as Performance Creative Director for {company}.
+            Current Brand & Ad Baseline:
+            {brand_dna_text}
+
+            STRICT FORMATTING:
+            - Output compact, high-converting ad concepts engineered to outperform their current baseline in 3 short bulleted blocks:
+              1. Google Search Ad (2 Headlines + 1 Description)
+              2. Meta Feed Ad (Primary Text + Headline + CTA)
+              3. 4-Second Video Hook (Visual Scene + Voiceover/Text Overlay)
+            - End with '---DEEP_DIVE---' followed by how these concepts evolve {company}'s current Meta & Google ad patterns.
+            """
+
+            # Agent 5: Social & Brand Triage
+            p4 = f"""
+            Act as Brand Reputation Lead for {company}.
+            STRICT FORMATTING:
+            - Output 2 short bullet points under 'Friction to Curtail' and 2 short bullet points under 'Wins to Amplify' (max 15 words per bullet).
+            - End with '---DEEP_DIVE---' followed by a 3-step rapid response playbook across Reddit, review platforms, and customer support.
+            """
+
+            e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v2", p1, preferred="gemini", use_search=True)
+            e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v1", p_paid, preferred="claude")
+            e2 = get_or_generate_text_element(company, "agent2_pricing", p2, preferred="claude")
+            e3 = get_or_generate_text_element(company, "agent3_creative", p3, preferred="claude")
+            e4 = get_or_generate_text_element(company, "agent4_social", p4, preferred="gemini", use_search=True)
+
+            img_meta = None
+            img_banner = None
+            img_hook_frame = None
+
+            if generate_images:
+                meta_prompt = (
+                    f"Create an authentic high-converting Instagram/Meta feed advertisement creative for {company}. "
+                    f"Strictly align with this brand design language and ad pattern: {brand_dna_text} "
+                    f"Clean commercial composition, authentic photography, minimal clean callout badge, no cluttered text."
+                )
+                banner_prompt = (
+                    f"Create a sleek widescreen digital display banner ad creative for {company}. "
+                    f"Strictly align with this brand design language and ad pattern: {brand_dna_text} "
+                    f"Hero product/service showcase, high visual contrast, clean modern layout."
+                )
+                hook_frame_prompt = (
+                    f"Create the opening 0-second keyframe visual for a 4-second commercial video ad hook for {company}. "
+                    f"Strictly align with this brand design language and ad pattern: {brand_dna_text} "
+                    f"High-attention visual hook with clear focal subject and space for a bold short headline overlay."
+                )
+                img_meta = get_or_generate_image_element(company, "meta_ad_1x1", meta_prompt, aspect_ratio="1:1")
+                img_banner = get_or_generate_image_element(company, "banner_ad_16x9", banner_prompt, aspect_ratio="16:9")
+                img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9", hook_frame_prompt, aspect_ratio="16:9")
+
+            st.session_state["last_audit"] = {
+                "company": company,
+                "brand_intel": brand_intel,
+                "e1": e1,
+                "e_paid": e_paid,
+                "e2": e2,
+                "e3": e3,
+                "e4": e4,
+                "img_meta": img_meta,
+                "img_banner": img_banner,
+                "img_hook_frame": img_hook_frame,
+            }
+
+# -----------------------------------------------------------------------------
+# RENDER RESULTS & EXECUTIVE PDF DOWNLOAD
+# -----------------------------------------------------------------------------
+audit = st.session_state.get("last_audit")
+if audit:
+    company = audit["company"]
+    tracked_items = [
+        audit.get("brand_intel"), audit["e1"], audit["e_paid"], audit["e2"], audit["e3"], audit["e4"],
+        audit.get("img_meta"), audit.get("img_banner"), audit.get("img_hook_frame")
+    ]
+    active_items = [x for x in tracked_items if isinstance(x, dict)]
+    cached_count = sum(1 for x in active_items if x.get("ok") and x.get("from_cache"))
+    fresh_count = sum(1 for x in active_items if x.get("ok") and not x.get("from_cache"))
+    failed_count = sum(1 for x in active_items if not x.get("ok"))
+
+    col_status, col_pdf = st.columns([3.0, 1.3], vertical_alignment="center")
+    with col_status:
+        st.markdown(f"""
+        <div class="status-strip">
+            <span><strong>{company}</strong>  •  5-Agent Suite Ready</span>
+            <span style="color:#6E6E73;">Cache Hits: <strong>{cached_count}</strong>  |  Fresh: <strong>{fresh_count}</strong>  |  Failed: <strong>{failed_count}</strong></span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_pdf:
+        pdf_bytes = build_executive_pdf(audit)
+        st.download_button(
+            label="Download Executive PDF",
+            data=pdf_bytes,
+            file_name=f"{_slug(company)}_executive_audit.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "SEO, AEO & GEO",
+        "Paid Search & CRO",
+        "Pricing & Unit Economics",
+        "Ad Creative Studio",
+        "Social & Brand Triage"
+    ])
+
+    def render_bento_tab(title: str, item: dict, expander_title: str):
+        if not item["ok"]:
+            st.error(f"Module unavailable: {item['error']}")
+            st.caption("Click 'Run Intelligence Suite' again to selectively retry this module.")
+            return
+        cache_tag = f"Cached ({item['age']})" if item["from_cache"] else "Freshly Generated"
+        st.markdown(f"""
+        <div class="apple-card">
+            <div class="apple-card-header">{title}</div>
+            <div class="apple-meta-pill">{item['engine']}  •  {cache_tag}</div>
+        """, unsafe_allow_html=True)
+
+        parts = item["content"].split("---DEEP_DIVE---")
+        st.markdown(parts[0].strip())
+        if len(parts) > 1 and parts[1].strip():
+            with st.expander(expander_title):
+                st.markdown(parts[1].strip())
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with tab1:
+        render_bento_tab(
+            "Organic Search Intelligence: SEO, AEO & GEO",
+            audit["e1"],
+            "View AI Prompt Visibility Matrix & Technical SEO Blueprint"
+        )
+
+    with tab2:
+        render_bento_tab(
+            "Paid Acquisition, Shopping & Funnel CRO",
+            audit["e_paid"],
+            "View Bidding Segmentation & Checkout CRO Experiments"
+        )
+
+    with tab3:
+        render_bento_tab(
+            "Pricing Architecture & Monetization Levers",
+            audit["e2"],
+            "View Tier Optimization & Margin Playbook"
+        )
+
+    with tab4:
+        st.markdown("""
+        <div class="apple-card">
+            <div class="apple-card-header">Current Brand Design Language & Active Ad Patterns</div>
+        """, unsafe_allow_html=True)
+        bi = audit.get("brand_intel")
+        if bi and bi["ok"]:
+            bi_cache = f"Cached ({bi['age']})" if bi["from_cache"] else "Freshly Generated"
+            st.markdown(f'<div class="apple-meta-pill">{bi["engine"]}  •  {bi_cache}</div>', unsafe_allow_html=True)
+            st.markdown(bi["content"])
+        else:
+            st.info(f"Using baseline brand profile for {company}.")
+
+        q = quote_plus(company)
+        meta_lib_url = f"https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=IN&q={q}&search_type=keyword_unordered"
+        google_trans_url = f"https://adstransparency.google.com/?region=IN&domain={q}"
+        st.markdown(
+            f"**Verify Live Ad Libraries:**   "
+            f"[Meta Ad Library for {company} ↗]({meta_lib_url})   |   "
+            f"[Google Ads Transparency Center ↗]({google_trans_url})"
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        render_bento_tab(
+            "Next-Gen Ad Copy & Creative Hooks",
+            audit["e3"],
+            "View Creative Rationale & Baseline Evolution"
+        )
+
+        if generate_images:
+            st.markdown("""
+            <div class="apple-card">
+                <div class="apple-card-header">Brand-Aligned Visual Creatives</div>
+                <div class="apple-meta-pill">Generated via Nano Banana 2 (gemini-3.1-flash-image)</div>
+            """, unsafe_allow_html=True)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**Meta Feed Ad (1:1)**")
+                m = audit.get("img_meta")
+                if m and m["ok"]:
+                    st.image(m["bytes"], use_container_width=True)
+                    st.caption(f"{'Cached (' + m['age'] + ')' if m['from_cache'] else 'Freshly Generated'}")
+                elif m:
+                    st.warning(f"Meta image failed (will retry on next run): {m['error']}")
+
+            with col2:
+                st.markdown("**Display Banner (16:9)**")
+                b = audit.get("img_banner")
+                if b and b["ok"]:
+                    st.image(b["bytes"], use_container_width=True)
+                    st.caption(f"{'Cached (' + b['age'] + ')' if b['from_cache'] else 'Freshly Generated'}")
+                elif b:
+                    st.warning(f"Banner image failed (will retry on next run): {b['error']}")
+
+            st.markdown("---")
+            st.markdown("**4-Second Video Hook — Opening Keyframe (16:9)**")
+            hf = audit.get("img_hook_frame")
+            if hf and hf["ok"]:
+                st.image(hf["bytes"], use_container_width=True)
+                st.caption(f"{'Cached (' + hf['age'] + ')' if hf['from_cache'] else 'Freshly Generated'}")
+            elif hf:
+                st.warning(f"Video hook keyframe failed (will retry on next run): {hf['error']}")
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    with tab5:
+        render_bento_tab(
+            "Brand Reputation & Social Sentiment Triage",
+            audit["e4"],
+            "View Rapid Response Playbook"
+        )
