@@ -176,6 +176,13 @@ div[data-baseweb="tab-highlight"], div[data-baseweb="tab-border"] {
     border-radius: 980px;
     margin-bottom: 1rem;
 }
+.governance-note {
+    font-size: 0.8rem;
+    color: #86868B;
+    margin-top: 0.9rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid #F2F2F7;
+}
 
 table {
     width: 100% !important;
@@ -663,7 +670,7 @@ if run_clicked:
             brand_intel = get_or_generate_brand_intel(company)
             brand_dna_text = brand_intel["content"] if brand_intel["ok"] else f"Authentic commercial brand aesthetic for {company}."
 
-            # Agent 1: Dedicated SEO, AEO & GEO Audit
+            # Agent 1: Dedicated SEO, AEO & GEO Audit (Polished scannable Problem -> Fix pairs)
             p1 = f"""
             Act as Principal SEO, AEO (Answer Engine Optimization), and GEO (Generative Engine Optimization) Architect auditing {company}.
             STRICT FORMATTING:
@@ -678,22 +685,26 @@ if run_clicked:
             - Follow with EXACTLY 4 short, hard-hitting bullet points (max 16 words per bullet) on highest-ROI organic search levers.
             - End with '---DEEP_DIVE---' followed by:
               1. A compact 4-row **AI Prompt Visibility Matrix** table (| High-Intent Buyer Prompt | Current AI Winner | {company} Vulnerability | Asset Needed to Win |)
-              2. Concise technical & programmatic SEO fixes (schema types, faceted URL canonicalization, and off-site consensus repair).
+              2. **Technical, Entity & Off-Site Execution Plan**: Output EXACTLY 5 scannable bullet points (max 25 words each) formatted strictly as:
+                 - **[Category] Problem -> Fix:** [Concise problem diagnosis] -> [Exact technical/schema/consensus implementation].
             """
 
-            # Agent 2: Dedicated Paid Search, Shopping & Funnel CRO Audit
+            # Agent 2: Dedicated Paid Search, Shopping & Funnel CRO Audit (Search-Grounded + PMax & Experiment Matrix)
             p_paid = f"""
-            Act as VP of Performance Marketing & Conversion Rate Optimization (CRO) auditing {company}.
+            Act as VP of Performance Marketing & Conversion Rate Optimization (CRO) auditing {company} using live web and ad signals.
             STRICT FORMATTING:
             - Start with a compact Markdown scorecard table with EXACT columns:
-              | Paid & Funnel Pillar | Score /100 | Diagnostic Benchmark | Primary Leakage |
+              | Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal | Primary Leakage |
               Rows MUST be:
-              1. Non-Brand Search & Shopping Efficiency (marketplace & quick-commerce ROAS pressure)
-              2. Paid Social Acquisition & Audience Fatigue (Meta prospecting vs. retargeting efficiency)
-              3. Landing Page & Product-to-Cart CRO (mobile speed, trust cues, SKU discovery)
-              4. Checkout, Booking & Post-Click Friction (payment/booking drop-offs, delivery SLA clarity)
+              1. Non-Brand Search & PMax Efficiency (brand exclusion, margin-tiered bidding, marketplace/q-comm pressure)
+              2. Paid Social Acquisition & Creative Fatigue (Meta prospecting vs. retargeting, CAPI LTV optimization)
+              3. Landing Page & Product-to-Cart CRO (mobile UX, unit-price cues, guided SKU discovery)
+              4. Checkout, Booking & Post-Click Friction (1-tap payment, COD/RTO risk, SLA clarity)
             - Follow with EXACTLY 4 short, hard-hitting bullet points (max 16 words per bullet) on immediate ROAS and conversion lifts.
-            - End with '---DEEP_DIVE---' followed by a bulleted breakdown of feed/bidding segmentation, high-intent landing page experiments, and checkout friction fixes.
+            - End with '---DEEP_DIVE---' followed by:
+              1. **Paid Architecture & Funnel Fixes**: Output 4 scannable bullet points (max 25 words each) formatted strictly as `- **[Area] Problem -> Fix:** [Diagnosis] -> [Action]`, explicitly covering PMax brand-exclusion/margin buckets, Meta LTV bidding, PDP merchandising, and checkout friction.
+              2. A compact 4-row **CRO & Paid Experiment Backlog** table:
+                 | Test Hypothesis | Primary Metric | Guardrail Metric | Expected Impact |
             """
 
             # Agent 3: Pricing & Unit Economics
@@ -726,8 +737,8 @@ if run_clicked:
             - End with '---DEEP_DIVE---' followed by a 3-step rapid response playbook across Reddit, review platforms, and customer support.
             """
 
-            e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v2", p1, preferred="gemini", use_search=True)
-            e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v1", p_paid, preferred="claude")
+            e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v3", p1, preferred="gemini", use_search=True)
+            e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v2", p_paid, preferred="claude", use_search=True)
             e2 = get_or_generate_text_element(company, "agent2_pricing", p2, preferred="claude")
             e3 = get_or_generate_text_element(company, "agent3_creative", p3, preferred="claude")
             e4 = get_or_generate_text_element(company, "agent4_social", p4, preferred="gemini", use_search=True)
@@ -811,7 +822,7 @@ if audit:
         "Social & Brand Triage"
     ])
 
-    def render_bento_tab(title: str, item: dict, expander_title: str):
+    def render_bento_tab(title: str, item: dict, expander_title: str, governance_footnote: str | None = None):
         if not item["ok"]:
             st.error(f"Module unavailable: {item['error']}")
             st.caption("Click 'Run Intelligence Suite' again to selectively retry this module.")
@@ -828,20 +839,24 @@ if audit:
         if len(parts) > 1 and parts[1].strip():
             with st.expander(expander_title):
                 st.markdown(parts[1].strip())
+        if governance_footnote:
+            st.markdown(f'<div class="governance-note">{governance_footnote}</div>', unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     with tab1:
         render_bento_tab(
             "Organic Search Intelligence: SEO, AEO & GEO",
             audit["e1"],
-            "View AI Prompt Visibility Matrix & Technical SEO Blueprint"
+            "View AI Prompt Visibility Matrix & Technical SEO Blueprint",
+            governance_footnote="Governance Note: Diagnostic signals are synthesized via live AI search grounding; verify named entities and exact review counts prior to board distribution."
         )
 
     with tab2:
         render_bento_tab(
             "Paid Acquisition, Shopping & Funnel CRO",
             audit["e_paid"],
-            "View Bidding Segmentation & Checkout CRO Experiments"
+            "View PMax Architecture, Funnel Fixes & Experiment Backlog",
+            governance_footnote="Governance Note: Benchmarks reflect observable ad/site signals and industry unit-economics heuristics; validate against live ad-account telemetry."
         )
 
     with tab3:
