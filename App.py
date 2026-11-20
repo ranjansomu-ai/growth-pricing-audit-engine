@@ -341,7 +341,7 @@ def call_claude(prompt: str):
     client = anthropic.Anthropic(api_key=claude_key)
     msg = client.messages.create(
         model="claude-sonnet-5-5",
-        max_tokens=1600,
+        max_tokens=1800,
         messages=[{"role": "user", "content": prompt}]
     )
     text = msg.content[0].text if msg.content else ""
@@ -422,21 +422,18 @@ def get_or_fetch_brand_logo(company: str, manual_upload=None):
             html = resp.read().decode("utf-8", errors="ignore")
 
         candidate_urls = []
-        # 1. Prioritize <img> tags containing 'logo' in src, alt, class, or id
         for img_tag in re.findall(r"<img\b[^>]*>", html, flags=re.IGNORECASE):
             if "logo" in img_tag.lower():
                 src_m = re.search(r'\bsrc=["\']([^"\']+)["\']', img_tag, flags=re.IGNORECASE)
                 if src_m:
                     candidate_urls.append(urljoin(base_url, src_m.group(1)))
 
-        # 2. Apple-touch-icon / high-res site icons
         for link_tag in re.findall(r"<link\b[^>]*>", html, flags=re.IGNORECASE):
             if any(k in link_tag.lower() for k in ["apple-touch-icon", "icon"]):
                 href_m = re.search(r'\bhref=["\']([^"\']+)["\']', link_tag, flags=re.IGNORECASE)
                 if href_m:
                     candidate_urls.append(urljoin(base_url, href_m.group(1)))
 
-        # 3. Common standard icon paths
         candidate_urls.extend([
             urljoin(base_url, "/apple-touch-icon.png"),
             urljoin(base_url, "/logo.png"),
@@ -725,7 +722,7 @@ def build_executive_pdf(audit_data: dict) -> bytes:
         pdf.render_markdown_block(audit_data["e3"]["content"])
 
     if audit_data["e4"]["ok"]:
-        pdf.section_title("5. Brand Reputation & Social Sentiment Triage")
+        pdf.section_title("5. Brand Reputation, Social Listening & Creator Partnerships")
         pdf.render_markdown_block(audit_data["e4"]["content"])
 
     images_to_embed = [
@@ -861,19 +858,35 @@ if run_clicked:
                  | Ad Variant | Hook / Angle | Target Persona | Primary KPI |
             """
 
-            # Agent 5: Social & Brand Triage
+            # Agent 5: Upgraded Social, Brand Triage & Top 10 Creator Outreach
             p4 = f"""
-            Act as Brand Reputation Lead for {company}.
-            STRICT FORMATTING:
-            - Output 2 short bullet points under 'Friction to Curtail' and 2 short bullet points under 'Wins to Amplify' (max 15 words per bullet).
-            - End with '---DEEP_DIVE---' followed by a 3-step rapid response playbook across Reddit, review platforms, and customer support.
+            Act as VP of Brand Reputation, Social Listening & Creator Partnerships auditing {company} using live web, Reddit, Trustpilot, review aggregator, and YouTube search signals.
+            STRICT FORMATTING (DO NOT USE ANY EMOJIS):
+            - Line 1 MUST be a bold 1-sentence executive summary of the brand's current public reputation posture, formatted strictly as:
+              **Current Brand Sentiment Archetype:** [1 concise sentence contrasting their core brand strengths/advocacy against their primary public friction points].
+            - Immediately follow with a compact Markdown scorecard table with EXACT columns (use integer-only numbers like 64 in Score /100, never '64/100'):
+              | Reputation & Listening Pillar | Score /100 | Observable Social / Review Signal | Primary Trust Risk |
+              Rows MUST be:
+              1. Fulfillment & Post-Purchase Sentiment (delivery SLAs, cancellation UX, 3PL courier complaints)
+              2. Clinical & Product Trust Authority (service quality ratings, authenticity perception, medical/product escalations)
+              3. Review Ecosystem Parity (on-site verified reviews vs. Trustpilot, Google Reviews, Reddit, and App Stores)
+              4. Community Advocacy & Earned Momentum (organic user UGC, PR/funding milestones, creator sentiment)
+            - Immediately follow with **Voice of the Customer — Recent Platform Signals** formatted as a compact 6-row table:
+              | Polarity | Platform & Context | Representative Customer Feedback | Core Theme |
+              (Include 3 recent Positive examples and 3 recent Negative examples grounded in real Reddit, Trustpilot, Google Maps, or App Store discussions).
+            - End with '---DEEP_DIVE---' followed by:
+              1. **Rapid Triage & Reputation Execution Plan**: Output 4 scannable bullet points (max 25 words each) formatted strictly as `- **[Area] Problem -> Fix:** [Current sentiment/ops trigger] -> [Exact SLA, product, or comms action]`.
+              2. **Social Listening & Escalation SLA Matrix**: A compact 4-row table:
+                 | Listening Cluster & Channels | Trigger Signal | Severity & SLA | Owner & Resolution Play |
+              3. **Top 10 Influencers & YouTube Channels for Brand Collaboration**: A 10-row outreach table identifying real, relevant YouTube channels and social creators who review or talk about products/categories aligned with {company}:
+                 | Rank | Creator / Channel Name | Primary Platform | Category & Audience Fit | Recommended Collab Angle |
             """
 
             e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v3", p1, preferred="gemini", use_search=True)
             e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v2", p_paid, preferred="claude", use_search=True)
             e2 = get_or_generate_text_element(company, "agent2_pricing_v2", p2, preferred="claude", use_search=True)
             e3 = get_or_generate_text_element(company, "agent3_creative_v2", p3, preferred="claude")
-            e4 = get_or_generate_text_element(company, "agent4_social", p4, preferred="gemini", use_search=True)
+            e4 = get_or_generate_text_element(company, "agent4_social_v2", p4, preferred="gemini", use_search=True)
 
             img_meta = None
             img_banner = None
@@ -1089,8 +1102,8 @@ if audit:
 
     with tab5:
         render_bento_tab(
-            "Brand Reputation & Social Sentiment Triage",
+            "Brand Reputation, Social Listening & Creator Partnerships",
             audit["e4"],
-            "View Rapid Response Playbook",
-            governance_footnote="Governance Note: Sentiment signals reflect indexed public community threads and review aggregators; validate with internal CS ticket taxonomy."
+            "View Rapid Triage Playbook, Escalation SLAs & Top 10 Creator Outreach Roster",
+            governance_footnote="Governance Note: Customer feedback snippets, scores, and creator handles are synthesized via live search grounding; verify active handle metrics and CS ticket taxonomy before outreach."
         )
