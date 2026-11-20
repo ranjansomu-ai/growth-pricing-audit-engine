@@ -151,20 +151,20 @@ div[data-baseweb="tab-highlight"], div[data-baseweb="tab-border"] {
     display: none !important;
 }
 
-.apple-card {
+.apple-section-header {
     background-color: #FFFFFF;
     border: 1px solid #E5E5EA;
-    border-radius: 20px;
-    padding: 1.6rem 1.8rem;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-    margin-bottom: 1.2rem;
+    border-radius: 16px;
+    padding: 1.1rem 1.4rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+    margin-bottom: 1rem;
 }
 .apple-card-header {
-    font-size: 1.25rem;
+    font-size: 1.22rem;
     font-weight: 600;
     letter-spacing: -0.02em;
     color: #1D1D1F;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.3rem;
 }
 .apple-meta-pill {
     display: inline-block;
@@ -174,14 +174,13 @@ div[data-baseweb="tab-highlight"], div[data-baseweb="tab-border"] {
     font-weight: 500;
     padding: 0.22rem 0.75rem;
     border-radius: 980px;
-    margin-bottom: 1rem;
 }
 .governance-note {
     font-size: 0.8rem;
     color: #86868B;
-    margin-top: 0.9rem;
+    margin-top: 1rem;
     padding-top: 0.65rem;
-    border-top: 1px solid #F2F2F7;
+    border-top: 1px solid #E5E5EA;
 }
 
 table {
@@ -189,6 +188,7 @@ table {
     border-collapse: collapse !important;
     margin: 0.8rem 0 1.2rem 0 !important;
     font-size: 0.91rem !important;
+    background-color: #FFFFFF !important;
 }
 th {
     background-color: #F5F5F7 !important;
@@ -205,7 +205,7 @@ td {
 }
 
 details[data-testid="stExpander"] {
-    background-color: #FBFBFD !important;
+    background-color: #FFFFFF !important;
     border: 1px solid #E5E5EA !important;
     border-radius: 14px !important;
     margin-top: 0.8rem !important;
@@ -393,7 +393,8 @@ def get_or_generate_text_element(company: str, element_key: str, prompt: str, pr
         }
 
 def get_or_generate_brand_intel(company: str):
-    cached = load_cached_element(company, "brand_ad_intel_v2")
+    """Apple-minimalist Brand Design Language & Creative Baseline Audit (No emojis)."""
+    cached = load_cached_element(company, "brand_ad_intel_v3")
     if cached:
         return {
             "ok": True,
@@ -404,14 +405,17 @@ def get_or_generate_brand_intel(company: str):
             "error": None
         }
     prompt = f"""
-    Research {company}'s current brand design language and active ad messaging across Meta Ad Library, Google Ads Transparency Center, Instagram, and Google Search ads.
-    STRICT FORMATTING — Output EXACTLY these 4 punchy bullet points (max 18 words per bullet) and nothing else:
-    - **Visual Design Language:** [Exact primary/secondary brand colors, card/UI styling, typography mood, and photography style]
-    - **Meta & Social Ad Patterns:** [Dominant visual hooks, offer badges, and creative formats seen in their Meta ads]
-    - **Google Search & Shopping Messaging:** [Primary headline angles, value props, and CTA patterns in search/shopping ads]
-    - **Core Audience & Trust Triggers:** [Target persona setting and key credibility signals/social proof used]
+    Act as VP of Brand & Performance Creative auditing {company}'s current design system and active ads across Meta Ad Library, Google Ads Transparency Center, Instagram, and Google Search.
+    STRICT FORMATTING (DO NOT USE ANY EMOJIS):
+    - Output EXACTLY these 4 concise bullet points (max 18 words per bullet):
+      - **Visual Design Language:** [Exact primary/secondary brand colors, card/UI styling, typography mood, and photography style]
+      - **Meta & Social Ad Patterns:** [Dominant visual hooks, offer badges, and creative formats seen in their Meta ads]
+      - **Google Search & Shopping Messaging:** [Primary headline angles, value props, and CTA patterns in search/shopping ads]
+      - **Core Audience & Trust Triggers:** [Target persona setting and key credibility signals/social proof used]
+    - Immediately follow with a compact 3-row **Creative Baseline & Opportunity Matrix** table:
+      | Channel / Format | Current Baseline Pattern | Creative Fatigue / Gap | Next-Gen Hook Angle |
     """
-    return get_or_generate_text_element(company, "brand_ad_intel_v2", prompt, preferred="gemini", use_search=True)
+    return get_or_generate_text_element(company, "brand_ad_intel_v3", prompt, preferred="gemini", use_search=True)
 
 def get_or_generate_image_element(company: str, element_key: str, prompt: str, aspect_ratio: str = "1:1"):
     cached = load_cached_element(company, element_key, asset_ext="png")
@@ -707,7 +711,7 @@ if run_clicked:
                  | Test Hypothesis | Primary Metric | Guardrail Metric | Expected Impact |
             """
 
-            # Agent 3: Upgraded Pricing & Unit Economics (1-Line Strategy Archetype + 4-Pillar Scorecard + Problem->Fix + Impact Matrix)
+            # Agent 3: Pricing & Unit Economics
             p2 = f"""
             Act as VP of Pricing & Commercial Strategy auditing {company} using live web pricing, shipping, fee, and product-mix signals.
             STRICT FORMATTING:
@@ -727,18 +731,21 @@ if run_clicked:
                  | Pricing Lever | Target Cohort | Mechanism | Margin / LTV Lift | Volume / Churn Guardrail |
             """
 
-            # Agent 4: Ad Creative Studio
+            # Agent 4: Upgraded Ad Creative Studio (Strict RSA char limits + A/B Matrix + Problem->Fix)
             p3 = f"""
-            Act as Performance Creative Director for {company}.
+            Act as VP of Performance Creative & Brand Strategy for {company}.
             Current Brand & Ad Baseline:
             {brand_dna_text}
 
-            STRICT FORMATTING:
-            - Output compact, high-converting ad concepts engineered to outperform their current baseline in 3 short bulleted blocks:
-              1. Google Search Ad (2 Headlines + 1 Description)
-              2. Meta Feed Ad (Primary Text + Headline + CTA)
-              3. 4-Second Video Hook (Visual Scene + Voiceover/Text Overlay)
-            - End with '---DEEP_DIVE---' followed by how these concepts evolve {company}'s current Meta & Google ad patterns.
+            STRICT FORMATTING (DO NOT USE ANY EMOJIS):
+            - Output compact, high-converting ad concepts engineered to outperform their current baseline in 3 short blocks:
+              1. **Google Search RSA Pack** (strictly enforce character limits: 3 Headlines <=30 chars each + 2 Descriptions <=90 chars each)
+              2. **Meta Feed Ad** (Primary Text <=110 chars + Headline <=35 chars + CTA)
+              3. **4-Second Video Hook** (Visual Scene + Voiceover/Text Overlay <=12 words)
+            - End with '---DEEP_DIVE---' followed by:
+              1. **Creative Rationale & Baseline Evolution**: Output 3 scannable bullet points (max 25 words each) formatted strictly as `- **[Channel] Problem -> Fix:** [Current creative fatigue/gap] -> [How new hook improves CTR/CVR]`.
+              2. A compact 4-row **Creative A/B Testing Matrix** table:
+                 | Ad Variant | Hook / Angle | Target Persona | Primary KPI |
             """
 
             # Agent 5: Social & Brand Triage
@@ -752,7 +759,7 @@ if run_clicked:
             e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v3", p1, preferred="gemini", use_search=True)
             e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v2", p_paid, preferred="claude", use_search=True)
             e2 = get_or_generate_text_element(company, "agent2_pricing_v2", p2, preferred="claude", use_search=True)
-            e3 = get_or_generate_text_element(company, "agent3_creative", p3, preferred="claude")
+            e3 = get_or_generate_text_element(company, "agent3_creative_v2", p3, preferred="claude")
             e4 = get_or_generate_text_element(company, "agent4_social", p4, preferred="gemini", use_search=True)
 
             img_meta = None
@@ -761,23 +768,23 @@ if run_clicked:
 
             if generate_images:
                 meta_prompt = (
-                    f"Create an authentic high-converting Instagram/Meta feed advertisement creative for {company}. "
-                    f"Strictly align with this brand design language and ad pattern: {brand_dna_text} "
-                    f"Clean commercial composition, authentic photography, minimal clean callout badge, no cluttered text."
+                    f"Create a sleek, modern Instagram/Meta feed advertisement creative (1:1) for {company}. "
+                    f"Align with this brand design language: {brand_dna_text} "
+                    f"Apple-inspired clean commercial composition, authentic natural photography, MAXIMUM 2 clean UI elements (1 crisp offer pill badge + 1 primary CTA button), generous breathing room, zero cluttered text."
                 )
                 banner_prompt = (
-                    f"Create a sleek widescreen digital display banner ad creative for {company}. "
-                    f"Strictly align with this brand design language and ad pattern: {brand_dna_text} "
-                    f"Hero product/service showcase, high visual contrast, clean modern layout."
+                    f"Create a sleek widescreen digital display banner ad creative (16:9) for {company}. "
+                    f"Align with this brand design language: {brand_dna_text} "
+                    f"Hero product/service showcase on clean off-white/warm brand backdrop, MAXIMUM 2 clean UI elements (1 bold headline + 1 CTA button), zero clutter."
                 )
                 hook_frame_prompt = (
-                    f"Create the opening 0-second keyframe visual for a 4-second commercial video ad hook for {company}. "
-                    f"Strictly align with this brand design language and ad pattern: {brand_dna_text} "
-                    f"High-attention visual hook with clear focal subject and space for a bold short headline overlay."
+                    f"Create the opening 0-second keyframe visual for a 4-second commercial video ad hook (16:9) for {company}. "
+                    f"Align with this brand design language: {brand_dna_text} "
+                    f"High-attention candid hero moment with clean composition, MAXIMUM 2 clean UI overlays (1 short 4-word hook headline + 1 subtle brand badge), zero clutter."
                 )
-                img_meta = get_or_generate_image_element(company, "meta_ad_1x1", meta_prompt, aspect_ratio="1:1")
-                img_banner = get_or_generate_image_element(company, "banner_ad_16x9", banner_prompt, aspect_ratio="16:9")
-                img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9", hook_frame_prompt, aspect_ratio="16:9")
+                img_meta = get_or_generate_image_element(company, "meta_ad_1x1_v2", meta_prompt, aspect_ratio="1:1")
+                img_banner = get_or_generate_image_element(company, "banner_ad_16x9_v2", banner_prompt, aspect_ratio="16:9")
+                img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9_v2", hook_frame_prompt, aspect_ratio="16:9")
 
             st.session_state["last_audit"] = {
                 "company": company,
@@ -841,9 +848,10 @@ if audit:
             return
         cache_tag = f"Cached ({item['age']})" if item["from_cache"] else "Freshly Generated"
         st.markdown(f"""
-        <div class="apple-card">
+        <div class="apple-section-header">
             <div class="apple-card-header">{title}</div>
             <div class="apple-meta-pill">{item['engine']}  •  {cache_tag}</div>
+        </div>
         """, unsafe_allow_html=True)
 
         parts = item["content"].split("---DEEP_DIVE---")
@@ -853,7 +861,6 @@ if audit:
                 st.markdown(parts[1].strip())
         if governance_footnote:
             st.markdown(f'<div class="governance-note">{governance_footnote}</div>', unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
 
     with tab1:
         render_bento_tab(
@@ -880,14 +887,20 @@ if audit:
         )
 
     with tab4:
-        st.markdown("""
-        <div class="apple-card">
-            <div class="apple-card-header">Current Brand Design Language & Active Ad Patterns</div>
-        """, unsafe_allow_html=True)
         bi = audit.get("brand_intel")
+        bi_meta = ""
         if bi and bi["ok"]:
             bi_cache = f"Cached ({bi['age']})" if bi["from_cache"] else "Freshly Generated"
-            st.markdown(f'<div class="apple-meta-pill">{bi["engine"]}  •  {bi_cache}</div>', unsafe_allow_html=True)
+            bi_meta = f'<div class="apple-meta-pill">{bi["engine"]}  •  {bi_cache}</div>'
+
+        st.markdown(f"""
+        <div class="apple-section-header">
+            <div class="apple-card-header">Current Brand Design Language & Active Ad Patterns</div>
+            {bi_meta}
+        </div>
+        """, unsafe_allow_html=True)
+
+        if bi and bi["ok"]:
             st.markdown(bi["content"])
         else:
             st.info(f"Using baseline brand profile for {company}.")
@@ -900,19 +913,22 @@ if audit:
             f"[Meta Ad Library for {company} ↗]({meta_lib_url})   |   "
             f"[Google Ads Transparency Center ↗]({google_trans_url})"
         )
-        st.markdown("</div>", unsafe_allow_html=True)
 
+        st.markdown("---")
         render_bento_tab(
             "Next-Gen Ad Copy & Creative Hooks",
             audit["e3"],
-            "View Creative Rationale & Baseline Evolution"
+            "View Creative Rationale & A/B Testing Matrix",
+            governance_footnote="Governance Note: Ad copy follows strict platform character caps; visual concepts are AI-rendered prototypes for creative direction and A/B testing."
         )
 
         if generate_images:
+            st.markdown("---")
             st.markdown("""
-            <div class="apple-card">
+            <div class="apple-section-header">
                 <div class="apple-card-header">Brand-Aligned Visual Creatives</div>
                 <div class="apple-meta-pill">Generated via Nano Banana 2 (gemini-3.1-flash-image)</div>
+            </div>
             """, unsafe_allow_html=True)
 
             col1, col2 = st.columns(2)
@@ -943,11 +959,10 @@ if audit:
             elif hf:
                 st.warning(f"Video hook keyframe failed (will retry on next run): {hf['error']}")
 
-            st.markdown("</div>", unsafe_allow_html=True)
-
     with tab5:
         render_bento_tab(
             "Brand Reputation & Social Sentiment Triage",
             audit["e4"],
-            "View Rapid Response Playbook"
+            "View Rapid Response Playbook",
+            governance_footnote="Governance Note: Sentiment signals reflect indexed public community threads and review aggregators; validate with internal CS ticket taxonomy."
         )
