@@ -3,8 +3,9 @@ from google import genai
 from google.genai import types
 import anthropic
 from PIL import Image
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urljoin
 from fpdf import FPDF
+import urllib.request
 import io
 import os
 import json
@@ -250,10 +251,11 @@ gemini_key = st.sidebar.text_input("Gemini API Key (Paid Tier)", type="password"
 claude_key = st.sidebar.text_input("Anthropic API Key (Optional)", type="password")
 
 st.sidebar.markdown("---")
-st.sidebar.header("Studio & Cache Controls")
+st.sidebar.header("Studio & Brand Guardrails")
 generate_images = st.sidebar.checkbox("Generate Brand Image & Hook Keyframes", value=True)
+uploaded_logo = st.sidebar.file_uploader("Optional Brand Logo Override (PNG/JPG)", type=["png", "jpg", "jpeg", "webp"])
 force_refresh = st.sidebar.checkbox("Force Refresh (Bypass 2-Day Cache)", value=False)
-st.sidebar.caption("Completed modules cache for 48 hours. Partial failures retry selectively on next run.")
+st.sidebar.caption("Logo is auto-fetched from the brand's official website and cached for 48 hours. Upload an override only if a site blocks automated logo extraction.")
 
 # -----------------------------------------------------------------------------
 # CACHE HELPERS (PER-ELEMENT, 2-DAY TTL)
@@ -309,7 +311,7 @@ def format_age(saved_at: float) -> str:
     return f"{hours:.1f}h ago"
 
 # -----------------------------------------------------------------------------
-# MODEL CALLERS
+# MODEL CALLERS & OFFICIAL WEBSITE LOGO FETCHER
 # -----------------------------------------------------------------------------
 def call_gemini(prompt: str, use_search: bool = False):
     if not gemini_key:
@@ -359,6 +361,101 @@ def route_agent(prompt: str, preferred: str = "gemini", use_search: bool = False
         except Exception as e:
             errors.append(f"{provider.upper()}: {e}")
     raise RuntimeError(" | ".join(errors) if errors else "No API key available.")
+
+def _download_valid_raster_image(url: str) -> bytes | None:
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36",
+                "Accept": "image/png,image/jpeg,image/webp,image/*,*/*;q=0.8"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            ctype = (resp.headers.get("Content-Type") or "").lower()
+            if "svg" in ctype or url.lower().split("?")[0].endswith(".svg"):
+                return None
+            data = resp.read()
+        img = Image.open(io.BytesIO(data)).convert("RGBA")
+        w, h = img.size
+        if w < 48 or h < 24:
+            return None
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception:
+        return None
+
+def get_or_fetch_brand_logo(company: str, manual_upload=None):
+    """Fetches official raster logo directly from the brand's website (cached 48h), or uses manual upload."""
+    if manual_upload is not None:
+        try:
+            img = Image.open(manual_upload).convert("RGBA")
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            raw_png = buf.getvalue()
+            save_cached_element(company, "brand_logo_v1", {"source": "Uploaded Brand Logo"}, raw_bytes=raw_png, asset_ext="png")
+            return {"ok": True, "bytes": raw_png, "source": "Uploaded Brand Logo", "from_cache": False}
+        except Exception:
+            pass
+
+    cached = load_cached_element(company, "brand_logo_v1", asset_ext="png")
+    if cached:
+        return {"ok": True, "bytes": cached["bytes"], "source": cached.get("source", "Official Website"), "from_cache": True}
+
+    if not gemini_key:
+        return {"ok": False, "bytes": None, "source": None, "from_cache": False}
+
+    try:
+        domain_raw, _ = call_gemini(
+            f"Return ONLY the canonical official homepage URL (e.g., https://supertails.com) for {company}. No markdown, no extra words.",
+            use_search=True
+        )
+        match = re.search(r"https?://[^\s\"'<>]+", domain_raw.strip())
+        base_url = match.group(0).rstrip(".,)/") if match else f"https://{_slug(company)}.com"
+
+        req = urllib.request.Request(
+            base_url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36"}
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+
+        candidate_urls = []
+        # 1. Prioritize <img> tags containing 'logo' in src, alt, class, or id
+        for img_tag in re.findall(r"<img\b[^>]*>", html, flags=re.IGNORECASE):
+            if "logo" in img_tag.lower():
+                src_m = re.search(r'\bsrc=["\']([^"\']+)["\']', img_tag, flags=re.IGNORECASE)
+                if src_m:
+                    candidate_urls.append(urljoin(base_url, src_m.group(1)))
+
+        # 2. Apple-touch-icon / high-res site icons
+        for link_tag in re.findall(r"<link\b[^>]*>", html, flags=re.IGNORECASE):
+            if any(k in link_tag.lower() for k in ["apple-touch-icon", "icon"]):
+                href_m = re.search(r'\bhref=["\']([^"\']+)["\']', link_tag, flags=re.IGNORECASE)
+                if href_m:
+                    candidate_urls.append(urljoin(base_url, href_m.group(1)))
+
+        # 3. Common standard icon paths
+        candidate_urls.extend([
+            urljoin(base_url, "/apple-touch-icon.png"),
+            urljoin(base_url, "/logo.png"),
+        ])
+
+        seen = set()
+        for c_url in candidate_urls:
+            if c_url in seen:
+                continue
+            seen.add(c_url)
+            png_bytes = _download_valid_raster_image(c_url)
+            if png_bytes:
+                source_label = f"Official Site ({base_url})"
+                save_cached_element(company, "brand_logo_v1", {"source": source_label}, raw_bytes=png_bytes, asset_ext="png")
+                return {"ok": True, "bytes": png_bytes, "source": source_label, "from_cache": False}
+    except Exception:
+        pass
+
+    return {"ok": False, "bytes": None, "source": None, "from_cache": False}
 
 def get_or_generate_text_element(company: str, element_key: str, prompt: str, preferred: str = "gemini", use_search: bool = False):
     cached = load_cached_element(company, element_key)
@@ -417,7 +514,7 @@ def get_or_generate_brand_intel(company: str):
     """
     return get_or_generate_text_element(company, "brand_ad_intel_v3", prompt, preferred="gemini", use_search=True)
 
-def get_or_generate_image_element(company: str, element_key: str, prompt: str, aspect_ratio: str = "1:1"):
+def get_or_generate_image_element(company: str, element_key: str, prompt: str, aspect_ratio: str = "1:1", logo_bytes: bytes | None = None):
     cached = load_cached_element(company, element_key, asset_ext="png")
     if cached:
         return {
@@ -431,9 +528,24 @@ def get_or_generate_image_element(company: str, element_key: str, prompt: str, a
         if not gemini_key:
             raise ValueError("Gemini API key required for image generation.")
         client = genai.Client(api_key=gemini_key)
+
+        if logo_bytes:
+            logo_pil = Image.open(io.BytesIO(logo_bytes))
+            logo_rule = (
+                "BRAND LOGO GUARDRAIL: The attached reference image is the official brand logo. "
+                "Place this exact logo cleanly in the top-left corner without altering, redrawing, recoloring, or distorting its icon or typography."
+            )
+            model_contents = [logo_pil, f"{prompt} {logo_rule}"]
+        else:
+            logo_rule = (
+                "BRAND LOGO GUARDRAIL: Do NOT invent, draw, or render any brand logo, wordmark, or company name text anywhere in the image. "
+                "Leave a clean unobstructed top-left corner safe zone for manual brand logo placement."
+            )
+            model_contents = f"{prompt} {logo_rule}"
+
         response = client.models.generate_content(
             model="gemini-3.1-flash-image",
-            contents=prompt,
+            contents=model_contents,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE"],
                 image_config=types.ImageConfig(aspect_ratio=aspect_ratio)
@@ -671,6 +783,7 @@ if run_clicked:
     else:
         company = target_company.strip()
         with st.spinner(f"Orchestrating 5 specialized sub-agents for {company}..."):
+            brand_logo = get_or_fetch_brand_logo(company, manual_upload=uploaded_logo)
             brand_intel = get_or_generate_brand_intel(company)
             brand_dna_text = brand_intel["content"] if brand_intel["ok"] else f"Authentic commercial brand aesthetic for {company}."
 
@@ -731,7 +844,7 @@ if run_clicked:
                  | Pricing Lever | Target Cohort | Mechanism | Margin / LTV Lift | Volume / Churn Guardrail |
             """
 
-            # Agent 4: Upgraded Ad Creative Studio (Strict RSA char limits + A/B Matrix + Problem->Fix)
+            # Agent 4: Ad Creative Studio
             p3 = f"""
             Act as VP of Performance Creative & Brand Strategy for {company}.
             Current Brand & Ad Baseline:
@@ -767,27 +880,29 @@ if run_clicked:
             img_hook_frame = None
 
             if generate_images:
+                logo_bytes = brand_logo["bytes"] if brand_logo["ok"] else None
                 meta_prompt = (
                     f"Create a sleek, modern Instagram/Meta feed advertisement creative (1:1) for {company}. "
-                    f"Align with this brand design language: {brand_dna_text} "
+                    f"Strictly align with this brand design language: {brand_dna_text} "
                     f"Apple-inspired clean commercial composition, authentic natural photography, MAXIMUM 2 clean UI elements (1 crisp offer pill badge + 1 primary CTA button), generous breathing room, zero cluttered text."
                 )
                 banner_prompt = (
                     f"Create a sleek widescreen digital display banner ad creative (16:9) for {company}. "
-                    f"Align with this brand design language: {brand_dna_text} "
+                    f"Strictly align with this brand design language: {brand_dna_text} "
                     f"Hero product/service showcase on clean off-white/warm brand backdrop, MAXIMUM 2 clean UI elements (1 bold headline + 1 CTA button), zero clutter."
                 )
                 hook_frame_prompt = (
                     f"Create the opening 0-second keyframe visual for a 4-second commercial video ad hook (16:9) for {company}. "
-                    f"Align with this brand design language: {brand_dna_text} "
-                    f"High-attention candid hero moment with clean composition, MAXIMUM 2 clean UI overlays (1 short 4-word hook headline + 1 subtle brand badge), zero clutter."
+                    f"Strictly align with this brand design language: {brand_dna_text} "
+                    f"High-attention candid hero moment with clean composition, MAXIMUM 2 clean UI overlays (1 short 4-word hook headline + 1 subtle CTA badge), zero clutter."
                 )
-                img_meta = get_or_generate_image_element(company, "meta_ad_1x1_v2", meta_prompt, aspect_ratio="1:1")
-                img_banner = get_or_generate_image_element(company, "banner_ad_16x9_v2", banner_prompt, aspect_ratio="16:9")
-                img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9_v2", hook_frame_prompt, aspect_ratio="16:9")
+                img_meta = get_or_generate_image_element(company, "meta_ad_1x1_v3", meta_prompt, aspect_ratio="1:1", logo_bytes=logo_bytes)
+                img_banner = get_or_generate_image_element(company, "banner_ad_16x9_v3", banner_prompt, aspect_ratio="16:9", logo_bytes=logo_bytes)
+                img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9_v3", hook_frame_prompt, aspect_ratio="16:9", logo_bytes=logo_bytes)
 
             st.session_state["last_audit"] = {
                 "company": company,
+                "brand_logo": brand_logo,
                 "brand_intel": brand_intel,
                 "e1": e1,
                 "e_paid": e_paid,
@@ -924,12 +1039,25 @@ if audit:
 
         if generate_images:
             st.markdown("---")
-            st.markdown("""
+            bl = audit.get("brand_logo") or {}
+            logo_badge = (
+                f"Logo Guardrail Active ({bl.get('source', 'Official Website')})"
+                if bl.get("ok")
+                else "Logo Guardrail Active (Clean Safe-Zone Mode — No Hallucinated Wordmarks)"
+            )
+            st.markdown(f"""
             <div class="apple-section-header">
                 <div class="apple-card-header">Brand-Aligned Visual Creatives</div>
-                <div class="apple-meta-pill">Generated via Nano Banana 2 (gemini-3.1-flash-image)</div>
+                <div class="apple-meta-pill">Nano Banana 2 (gemini-3.1-flash-image)  •  {logo_badge}</div>
             </div>
             """, unsafe_allow_html=True)
+
+            if bl.get("ok") and bl.get("bytes"):
+                c_logo, c_note = st.columns([0.6, 4.4], vertical_alignment="center")
+                with c_logo:
+                    st.image(bl["bytes"], width=84)
+                with c_note:
+                    st.caption(f"Verified reference asset extracted from **{bl.get('source')}** and passed directly into image generation to preserve brand mark fidelity.")
 
             col1, col2 = st.columns(2)
             with col1:
