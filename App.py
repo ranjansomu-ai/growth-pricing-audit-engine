@@ -55,7 +55,7 @@ st.markdown("""
 
 :root {
     --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Arial, sans-serif;
-    --fs-hero: 3.95rem;
+    --fs-hero: 3.3rem;
     --fs-h2: 1.45rem;
     --fs-h3: 1.15rem;
     --fs-body: 0.95rem;
@@ -83,9 +83,9 @@ h1.suite-title, div.suite-title, .suite-title {
     font-size: var(--fs-hero) !important;
     font-weight: 700 !important;
     letter-spacing: -0.03em !important;
-    line-height: 1.1 !important;
+    line-height: 1.12 !important;
     color: #1D1D1F !important;
-    margin: 0 0 0.55rem 0 !important;
+    margin: 0 0 0.5rem 0 !important;
 }
 
 h2 {
