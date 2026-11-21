@@ -45,7 +45,7 @@ BACKEND_FORCE_REFRESH = _get_secret("FORCE_REFRESH", "false").lower() in ("1", "
 GENERATE_IMAGES_DEFAULT = _get_secret("GENERATE_IMAGES", "true").lower() in ("1", "true", "yes")
 
 # -----------------------------------------------------------------------------
-# UNIFORM BENTO & EDITORIAL CSS
+# UNIFORM BENTO, DISTINCT ACTION BUTTONS & EDITORIAL CSS
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -86,35 +86,32 @@ html, body, [class*="css"], .stApp {
 .suite-subtitle {
     font-size: 1.04rem;
     color: #6E6E73;
-    margin: 0 0 1.25rem 0;
+    margin: 0 0 1.2rem 0;
     line-height: 1.45;
 }
 
-.demo-callout {
-    background-color: #F5F5F7;
-    border: 1px solid #E5E5EA;
-    border-radius: 12px;
-    padding: 0.7rem 1rem;
-    font-size: 0.88rem;
-    color: #424245;
-    margin-bottom: 1.2rem;
+.preset-strip-label {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #6E6E73;
+    padding-top: 0.35rem;
 }
 
 .rec-box {
     background-color: #FFFFFF;
     border: 1px solid #E5E5EA;
     border-radius: 16px;
-    padding: 1.15rem 1.35rem;
-    margin: 0.9rem 0 1.3rem 0;
+    padding: 1.1rem 1.35rem;
+    margin: 0.85rem 0 1.3rem 0;
 }
 
 .rec-heading {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: #0071E3;
-    margin-bottom: 0.55rem;
+    margin-bottom: 0.5rem;
 }
 
 .bento-card {
@@ -122,11 +119,11 @@ html, body, [class*="css"], .stApp {
     border: 1.5px solid #E5E5EA;
     border-radius: 16px;
     padding: 1rem 1.05rem;
-    height: 148px;
+    height: 146px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.45rem;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -179,15 +176,38 @@ div[data-testid="stTextInput"] input {
     color: #1D1D1F !important;
 }
 
-div[data-testid="stButton"] > button,
-div[data-testid="stDownloadButton"] > button {
+/* Primary button ("Run Live Audit") */
+.live-run-btn div[data-testid="stButton"] > button {
+    background-color: #0071E3 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 980px !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    padding: 0.5rem 1.2rem !important;
+}
+
+/* Preset buttons (distinct warm/slate pill style so intent is clearly different) */
+.preset-btn div[data-testid="stButton"] > button {
+    background-color: #F2F2F7 !important;
+    color: #1D1D1F !important;
+    border: 1px solid #D2D2D7 !important;
+    border-radius: 980px !important;
+    font-weight: 500 !important;
+    font-size: 0.85rem !important;
+    padding: 0.42rem 1rem !important;
+}
+.preset-btn div[data-testid="stButton"] > button:hover {
+    background-color: #E5E5EA !important;
+    border-color: #8E8E93 !important;
+}
+
+/* Bento & PDF buttons */
+div[data-testid="stButton"] > button {
     border-radius: 980px !important;
     font-weight: 500 !important;
     font-size: 0.88rem !important;
-    padding: 0.45rem 1.1rem !important;
-}
-
-div[data-testid="stButton"] > button {
+    padding: 0.44rem 1.05rem !important;
     background-color: #0071E3 !important;
     color: #FFFFFF !important;
     border: none !important;
@@ -197,6 +217,10 @@ div[data-testid="stDownloadButton"] > button {
     background-color: #FFFFFF !important;
     color: #0071E3 !important;
     border: 1px solid #D2D2D7 !important;
+    border-radius: 980px !important;
+    font-weight: 500 !important;
+    font-size: 0.88rem !important;
+    padding: 0.44rem 1.1rem !important;
 }
 
 details[data-testid="stExpander"] {
@@ -208,7 +232,7 @@ details[data-testid="stExpander"] {
 
 details[data-testid="stExpander"] summary {
     font-weight: 600 !important;
-    color: #0071E3 !important;
+    color: #1D1D1F !important;
 }
 
 table {
@@ -266,11 +290,11 @@ MODULE_FULL_TITLES = {
 }
 
 MODULE_DEEP_TITLES = {
-    "seo": "Expand AI Prompt Visibility Matrix & Execution Plan",
-    "paid": "Expand Paid Architecture Fixes & Experiment Backlog",
-    "pricing": "Expand Tier Optimization Playbook & Impact Matrix",
-    "creative": "Expand Creative Rationale & A/B Testing Matrix",
-    "social": "Expand Rapid Triage Plan, Escalation SLAs & Top 10 Creators",
+    "seo": "Deep Dive: AI Prompt Visibility Matrix & Execution Plan",
+    "paid": "Deep Dive: Paid Architecture Fixes & Experiment Backlog",
+    "pricing": "Deep Dive: Tier Optimization Playbook & Impact Matrix",
+    "creative": "Deep Dive: Creative Rationale & A/B Testing Matrix",
+    "social": "Deep Dive: Rapid Triage Plan, Escalation SLAs & Top 10 Creators",
 }
 
 MODULE_GOV = {
@@ -1114,7 +1138,7 @@ class ExecutivePDF(FPDF):
 
 
 def build_executive_pdf(audit_data: dict) -> bytes:
-    company = audit_data["company"]
+    company = audit_data.get("company", "Brand")
     pdf = ExecutivePDF(company)
     pdf.set_auto_page_break(auto=True, margin=18)
     pdf.add_page()
@@ -1279,7 +1303,7 @@ def run_live_audit(company: str):
 
 
 # -----------------------------------------------------------------------------
-# HEADER, SAMPLE CALLOUT & CONTROLS
+# HEADER, LIVE AUDIT ROW & SEPARATE SAMPLE PRESET ROW
 # -----------------------------------------------------------------------------
 st.markdown("""
 <div class="suite-eyebrow">Soumya Ranjan Nayak • AI Growth & Pricing Architecture</div>
@@ -1287,52 +1311,62 @@ st.markdown("""
 <p class="suite-subtitle">
     Structured diagnostics across Organic Search (SEO/AEO/GEO), Paid Acquisition & CRO, Pricing Economics, Brand Creative, and Reputation Triage.
 </p>
-<div class="demo-callout">
-    <strong>Sample Presets (Supertails & Enphase):</strong> Pre-loaded reference audits so you can inspect the full framework immediately—or enter any brand and click <strong>Run Live Audit</strong>.
-</div>
 """, unsafe_allow_html=True)
 
-if "selected_bento" not in st.session_state:
-    st.session_state["selected_bento"] = None
+if "selected_bento_v4" not in st.session_state:
+    st.session_state["selected_bento_v4"] = None
 
-if "last_audit" not in st.session_state:
-    st.session_state["last_audit"] = build_sample_showcase("supertails")
+if "last_audit_v4" not in st.session_state:
+    st.session_state["last_audit_v4"] = build_sample_showcase("supertails")
 
-c_in, c_run, c_d1, c_d2 = st.columns([3.0, 1.35, 1.15, 1.25], vertical_alignment="center")
+# Line 1: Live Audit Brand Entry
+c_in, c_run = st.columns([3.6, 1.2], vertical_alignment="center")
 with c_in:
     target_company = st.text_input(
         "Target Company",
-        placeholder="Enter a brand (e.g., Ather Energy, Zepto, Zerodha)",
+        placeholder="Enter any brand name to run a live 5-module audit (e.g., Ather Energy, Zepto, Zerodha)",
         label_visibility="collapsed",
     )
 with c_run:
+    st.markdown('<div class="live-run-btn">', unsafe_allow_html=True)
     if st.button("Run Live Audit", use_container_width=True):
         if not GEMINI_KEY and not CLAUDE_KEY:
             st.error("Backend API key is not configured in Streamlit Secrets.")
         elif not target_company.strip():
             st.warning("Enter a company name first.")
         else:
-            st.session_state["last_audit"] = run_live_audit(target_company.strip())
-            st.session_state["selected_bento"] = None
+            st.session_state["last_audit_v4"] = run_live_audit(target_company.strip())
+            st.session_state["selected_bento_v4"] = None
             st.rerun()
-with c_d1:
-    if st.button("Supertails", use_container_width=True):
-        st.session_state["last_audit"] = build_sample_showcase("supertails")
-        st.session_state["selected_bento"] = None
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Line 2: Sample Presets (separate row below live audit with distinct button styling)
+st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
+p_lbl, p_b1, p_b2, _ = st.columns([2.2, 1.2, 1.2, 1.2], vertical_alignment="center")
+with p_lbl:
+    st.markdown('<div class="preset-strip-label">Sample Presets (pre-loaded reference audits for instant exploration):</div>', unsafe_allow_html=True)
+with p_b1:
+    st.markdown('<div class="preset-btn">', unsafe_allow_html=True)
+    if st.button("Sample: Supertails", key="preset_supertails", use_container_width=True):
+        st.session_state["last_audit_v4"] = build_sample_showcase("supertails")
+        st.session_state["selected_bento_v4"] = None
         st.rerun()
-with c_d2:
-    if st.button("Enphase", use_container_width=True):
-        st.session_state["last_audit"] = build_sample_showcase("enphase")
-        st.session_state["selected_bento"] = None
+    st.markdown('</div>', unsafe_allow_html=True)
+with p_b2:
+    st.markdown('<div class="preset-btn">', unsafe_allow_html=True)
+    if st.button("Sample: Enphase", key="preset_enphase", use_container_width=True):
+        st.session_state["last_audit_v4"] = build_sample_showcase("enphase")
+        st.session_state["selected_bento_v4"] = None
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # COMPANY HEADER, TOP RECOMMENDATIONS & 5 UNIFORM BENTO TILES
 # -----------------------------------------------------------------------------
-audit = st.session_state["last_audit"]
-company = audit["company"]
+audit = st.session_state.get("last_audit_v4") or build_sample_showcase("supertails")
+company = audit.get("company", "Supertails")
 official_url = audit.get("official_url", "")
-hooks = audit.get("hooks", {})
+hooks = audit.get("hooks") or {}
 
 st.markdown("---")
 h_left, h_right = st.columns([3.4, 1.2], vertical_alignment="center")
@@ -1343,7 +1377,7 @@ with h_left:
         b64 = base64.b64encode(bl["bytes"]).decode("utf-8")
         logo_img_html = f'<img src="data:image/png;base64,{b64}" style="height:28px;width:auto;margin-right:10px;vertical-align:middle;" />'
     st.markdown(f"### {logo_img_html}{company}", unsafe_allow_html=True)
-    st.caption(f"{official_url}  •  {'Curated Sample' if audit.get('is_showcase') else 'Live Audit'}")
+    st.caption(f"{official_url}  •  {'Sample Preset' if audit.get('is_showcase') else 'Live Audit'}")
 with h_right:
     st.download_button(
         label="Download PDF",
@@ -1355,23 +1389,24 @@ with h_right:
 
 recs = audit.get("top_recommendations") or []
 if recs:
-    rec_bullets = "\n".join(f"- {r}" for r in recs)
+    rec_lines = "\n".join(f"- {r}" for r in recs)
     st.markdown(f"""
     <div class="rec-box">
         <div class="rec-heading">Most Impactful Recommendations</div>
-        {rec_bullets}
+        {rec_lines}
     </div>
     """, unsafe_allow_html=True)
 
-# 5 Uniform Bento Boxes (3 on top row, 2 on bottom row—all equal height)
-selected_bento = st.session_state.get("selected_bento")
+selected_bento = st.session_state.get("selected_bento_v4")
 
 
 def render_uniform_bento_row(keys: list[str]):
     cols = st.columns(len(keys))
     for i, m_key in enumerate(keys):
         with cols[i]:
-            sc_val, one_line = hooks.get(m_key, ("65", ""))
+            h_pair = hooks.get(m_key, ("65", "Click Inspect to view module diagnostics."))
+            sc_val = str(h_pair[0]) if len(h_pair) > 0 else "65"
+            one_line = str(h_pair[1]) if len(h_pair) > 1 else ""
             is_sel = (selected_bento == m_key)
             card_cls = "bento-card bento-card-selected" if is_sel else "bento-card"
             st.markdown(f"""
@@ -1385,7 +1420,7 @@ def render_uniform_bento_row(keys: list[str]):
             """, unsafe_allow_html=True)
             btn_txt = "Close" if is_sel else "Inspect"
             if st.button(btn_txt, key=f"bento_btn_{m_key}", use_container_width=True):
-                st.session_state["selected_bento"] = None if is_sel else m_key
+                st.session_state["selected_bento_v4"] = None if is_sel else m_key
                 st.rerun()
 
 
@@ -1394,7 +1429,7 @@ st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
 render_uniform_bento_row(["creative", "social"])
 
 # -----------------------------------------------------------------------------
-# COLLAPSED BY DEFAULT DETAIL SECTION (OPENS WHEN A BENTO BOX IS SELECTED)
+# DETAIL SECTION (COLLAPSED BY DEFAULT ON LOAD; OPENS WHEN INSPECTED)
 # -----------------------------------------------------------------------------
 key_lookup = {
     "seo": "e1",
@@ -1407,7 +1442,8 @@ key_lookup = {
 if selected_bento in key_lookup:
     st.markdown("---")
     item = audit.get(key_lookup[selected_bento])
-    with st.expander(f"{MODULE_FULL_TITLES[selected_bento]}  ({hooks[selected_bento][0]}/100)", expanded=False):
+    sel_score = hooks.get(selected_bento, ("65", ""))[0]
+    with st.expander(f"{MODULE_FULL_TITLES[selected_bento]}  ({sel_score}/100)", expanded=True):
         if not item or not item.get("ok"):
             st.error(item.get("error", "Module unavailable.") if item else "Module unavailable.")
         else:
