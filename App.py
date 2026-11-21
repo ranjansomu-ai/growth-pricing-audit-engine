@@ -55,7 +55,7 @@ st.markdown("""
 
 :root {
     --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Arial, sans-serif;
-    --fs-h1: 2.0rem;
+    --fs-hero: 2.65rem;
     --fs-h2: 1.45rem;
     --fs-h3: 1.15rem;
     --fs-body: 0.95rem;
@@ -75,17 +75,17 @@ html, body, [class*="css"], .stApp, .stMarkdown, p, li, label, input, div, span,
 
 .block-container {
     max-width: 1080px !important;
-    padding-top: 2rem !important;
+    padding-top: 2.2rem !important;
     padding-bottom: 4rem !important;
 }
 
-h1, .suite-title {
-    font-size: var(--fs-h1) !important;
+h1.suite-title, .suite-title {
+    font-size: var(--fs-hero) !important;
     font-weight: 700 !important;
-    letter-spacing: -0.02em !important;
-    line-height: 1.2 !important;
+    letter-spacing: -0.03em !important;
+    line-height: 1.12 !important;
     color: #1D1D1F !important;
-    margin: 0 0 0.4rem 0 !important;
+    margin: 0 0 0.5rem 0 !important;
 }
 
 h2 {
@@ -107,17 +107,20 @@ h3 {
 }
 
 .suite-eyebrow {
-    font-size: var(--fs-body) !important;
+    font-size: 0.85rem !important;
     font-weight: 600 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
     color: var(--apple-blue) !important;
-    margin-bottom: 0.25rem !important;
+    margin-bottom: 0.35rem !important;
 }
 
 .suite-subtitle {
-    font-size: var(--fs-body) !important;
+    font-size: 1.05rem !important;
     color: #6E6E73 !important;
-    margin: 0 0 1.15rem 0 !important;
+    margin: 0 0 1.25rem 0 !important;
     line-height: 1.5 !important;
+    max-width: 820px;
 }
 
 .preset-strip-label {
