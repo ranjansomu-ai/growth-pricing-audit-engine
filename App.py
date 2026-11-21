@@ -45,7 +45,7 @@ BACKEND_FORCE_REFRESH = _get_secret("FORCE_REFRESH", "false").lower() in ("1", "
 GENERATE_IMAGES_DEFAULT = _get_secret("GENERATE_IMAGES", "true").lower() in ("1", "true", "yes")
 
 # -----------------------------------------------------------------------------
-# UNIFORM BENTO, DISTINCT ACTION BUTTONS & EDITORIAL CSS
+# UNIFIED TYPOGRAPHY, LIGHT-GREY PRESET BUTTONS & UNIFORM BENTO CSS
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -53,10 +53,22 @@ st.markdown("""
     display: none !important;
 }
 
-html, body, [class*="css"], .stApp {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif !important;
+:root {
+    --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Arial, sans-serif;
+    --fs-h1: 2.0rem;
+    --fs-h2: 1.45rem;
+    --fs-h3: 1.15rem;
+    --fs-body: 0.95rem;
+}
+
+html, body, [class*="css"], .stApp, .stMarkdown, p, li, label, input, button, div, span, table, th, td {
+    font-family: var(--font-ui) !important;
+    font-size: var(--fs-body);
+    color: #1D1D1F;
+}
+
+.stApp {
     background-color: #FBFBFD !important;
-    color: #1D1D1F !important;
 }
 
 .block-container {
@@ -65,53 +77,52 @@ html, body, [class*="css"], .stApp {
     padding-bottom: 4rem !important;
 }
 
-.suite-eyebrow {
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #0071E3;
-    margin-bottom: 0.3rem;
+h1, .suite-title {
+    font-size: var(--fs-h1) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+    line-height: 1.2 !important;
+    color: #1D1D1F !important;
+    margin: 0 0 0.4rem 0 !important;
 }
 
-.suite-title {
-    font-size: 2.35rem;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    line-height: 1.15;
-    color: #1D1D1F;
-    margin: 0 0 0.45rem 0;
+h2 {
+    font-size: var(--fs-h2) !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.015em !important;
+    line-height: 1.25 !important;
+    color: #1D1D1F !important;
+    margin: 0.5rem 0 0.35rem 0 !important;
+}
+
+h3 {
+    font-size: var(--fs-h3) !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em !important;
+    line-height: 1.3 !important;
+    color: #1D1D1F !important;
+    margin: 0.25rem 0 0.25rem 0 !important;
+}
+
+.suite-eyebrow {
+    font-size: var(--fs-body) !important;
+    font-weight: 600 !important;
+    color: #0071E3 !important;
+    margin-bottom: 0.25rem !important;
 }
 
 .suite-subtitle {
-    font-size: 1.04rem;
-    color: #6E6E73;
-    margin: 0 0 1.2rem 0;
-    line-height: 1.45;
+    font-size: var(--fs-body) !important;
+    color: #6E6E73 !important;
+    margin: 0 0 1.15rem 0 !important;
+    line-height: 1.5 !important;
 }
 
 .preset-strip-label {
-    font-size: 0.84rem;
-    font-weight: 600;
-    color: #6E6E73;
-    padding-top: 0.35rem;
-}
-
-.rec-box {
-    background-color: #FFFFFF;
-    border: 1px solid #E5E5EA;
-    border-radius: 16px;
-    padding: 1.1rem 1.35rem;
-    margin: 0.85rem 0 1.3rem 0;
-}
-
-.rec-heading {
-    font-size: 0.8rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #0071E3;
-    margin-bottom: 0.5rem;
+    font-size: var(--fs-body) !important;
+    font-weight: 500 !important;
+    color: #6E6E73 !important;
+    padding-top: 0.3rem !important;
 }
 
 .bento-card {
@@ -119,7 +130,7 @@ html, body, [class*="css"], .stApp {
     border: 1.5px solid #E5E5EA;
     border-radius: 16px;
     padding: 1rem 1.05rem;
-    height: 146px;
+    height: 148px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -141,26 +152,26 @@ html, body, [class*="css"], .stApp {
 }
 
 .bento-pillar {
-    font-size: 0.92rem;
-    font-weight: 700;
-    color: #1D1D1F;
-    line-height: 1.25;
+    font-size: var(--fs-body) !important;
+    font-weight: 700 !important;
+    color: #1D1D1F !important;
+    line-height: 1.25 !important;
 }
 
 .bento-score {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #0071E3;
+    font-size: var(--fs-body) !important;
+    font-weight: 600 !important;
+    color: #0071E3 !important;
     background-color: #EEF6FF;
-    padding: 0.16rem 0.5rem;
+    padding: 0.12rem 0.55rem;
     border-radius: 999px;
     white-space: nowrap;
 }
 
 .bento-oneliner {
-    font-size: 0.82rem;
-    color: #424245;
-    line-height: 1.38;
+    font-size: var(--fs-body) !important;
+    color: #424245 !important;
+    line-height: 1.38 !important;
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
@@ -172,42 +183,16 @@ div[data-testid="stTextInput"] input {
     border: 1px solid #D2D2D7 !important;
     border-radius: 10px !important;
     padding: 0.65rem 0.95rem !important;
-    font-size: 0.96rem !important;
+    font-size: var(--fs-body) !important;
     color: #1D1D1F !important;
 }
 
-/* Primary button ("Run Live Audit") */
-.live-run-btn div[data-testid="stButton"] > button {
-    background-color: #0071E3 !important;
-    color: #FFFFFF !important;
-    border: none !important;
-    border-radius: 980px !important;
-    font-weight: 600 !important;
-    font-size: 0.9rem !important;
-    padding: 0.5rem 1.2rem !important;
-}
-
-/* Preset buttons (distinct warm/slate pill style so intent is clearly different) */
-.preset-btn div[data-testid="stButton"] > button {
-    background-color: #F2F2F7 !important;
-    color: #1D1D1F !important;
-    border: 1px solid #D2D2D7 !important;
+div[data-testid="stButton"] > button,
+div[data-testid="stDownloadButton"] > button {
     border-radius: 980px !important;
     font-weight: 500 !important;
-    font-size: 0.85rem !important;
-    padding: 0.42rem 1rem !important;
-}
-.preset-btn div[data-testid="stButton"] > button:hover {
-    background-color: #E5E5EA !important;
-    border-color: #8E8E93 !important;
-}
-
-/* Bento & PDF buttons */
-div[data-testid="stButton"] > button {
-    border-radius: 980px !important;
-    font-weight: 500 !important;
-    font-size: 0.88rem !important;
-    padding: 0.44rem 1.05rem !important;
+    font-size: var(--fs-body) !important;
+    padding: 0.45rem 1.05rem !important;
     background-color: #0071E3 !important;
     color: #FFFFFF !important;
     border: none !important;
@@ -217,10 +202,19 @@ div[data-testid="stDownloadButton"] > button {
     background-color: #FFFFFF !important;
     color: #0071E3 !important;
     border: 1px solid #D2D2D7 !important;
-    border-radius: 980px !important;
-    font-weight: 500 !important;
-    font-size: 0.88rem !important;
-    padding: 0.44rem 1.1rem !important;
+}
+
+/* Distinct light-grey buttons for Sample Presets */
+button[aria-label*="Sample:"] {
+    background-color: #F2F2F7 !important;
+    color: #1D1D1F !important;
+    border: 1px solid #D2D2D7 !important;
+}
+
+button[aria-label*="Sample:"]:hover {
+    background-color: #E5E5EA !important;
+    color: #1D1D1F !important;
+    border-color: #A1A1A6 !important;
 }
 
 details[data-testid="stExpander"] {
@@ -230,7 +224,10 @@ details[data-testid="stExpander"] {
     margin-top: 0.75rem !important;
 }
 
-details[data-testid="stExpander"] summary {
+details[data-testid="stExpander"] summary,
+details[data-testid="stExpander"] summary p,
+details[data-testid="stExpander"] summary span {
+    font-size: var(--fs-body) !important;
     font-weight: 600 !important;
     color: #1D1D1F !important;
 }
@@ -239,31 +236,29 @@ table {
     width: 100% !important;
     border-collapse: collapse !important;
     margin: 0.75rem 0 1.1rem 0 !important;
-    font-size: 0.9rem !important;
 }
 
-th {
-    background-color: #F5F5F7 !important;
-    color: #1D1D1F !important;
-    font-weight: 600 !important;
-    text-align: left !important;
-    padding: 0.6rem 0.8rem !important;
-    border-bottom: 1px solid #D2D2D7 !important;
-}
-
-td {
+th, td {
+    font-size: var(--fs-body) !important;
     padding: 0.6rem 0.8rem !important;
     border-bottom: 1px solid #E5E5EA !important;
     color: #1D1D1F !important;
     vertical-align: top !important;
 }
 
+th {
+    background-color: #F5F5F7 !important;
+    font-weight: 600 !important;
+    text-align: left !important;
+    border-bottom: 1px solid #D2D2D7 !important;
+}
+
 .gov-note {
-    font-size: 0.8rem;
-    color: #86868B;
-    margin-top: 0.75rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid #EFEFF4;
+    font-size: var(--fs-body) !important;
+    color: #6E6E73 !important;
+    margin-top: 0.75rem !important;
+    padding-top: 0.5rem !important;
+    border-top: 1px solid #EFEFF4 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -316,17 +311,12 @@ def build_sample_showcase(brand_key: str) -> dict:
             "company": "Enphase Energy",
             "official_url": "https://enphase.com",
             "is_showcase": True,
-            "top_recommendations": [
-                "**Pricing & Bundling:** Package microinverters, battery storage, and smart load controls into clear Good/Better/Best tiers and weight installer incentives toward storage attach.",
-                "**Paid & Funnel CRO:** Separate homeowner lead-gen from installer acquisition, lead social hooks with outage protection, and streamline mobile quote qualification.",
-                "**Social & Partner SLA:** Enforce fast installer callback SLAs and proactive commissioning milestones to prevent regional service friction.",
-            ],
             "hooks": {
-                "seo": ("67", "Strong microinverter authority; sharper homeowner payback & grid-outage comparisons lift AI answer share."),
-                "paid": ("63", "High-intent solar demand exists; simpler homeowner savings checks improve qualified lead conversion."),
-                "pricing": ("64", "Premium hardware pairs with installer tiers; tying incentives to battery attach expands blended margin."),
-                "creative": ("71", "Lead with blackout resilience, 25-year reliability, and whole-home energy control over technical jargon."),
-                "social": ("68", "Strong homeowner trust in app telemetry and backup reliability; faster installer follow-up closes regional gaps."),
+                "seo": ("67", "Add concise homeowner payback & outage Q&As to win AI answer blocks."),
+                "paid": ("63", "Separate homeowner vs. installer funnels and simplify mobile quote steps."),
+                "pricing": ("64", "Bundle solar, battery & smart load tiers to lift storage attach and margin."),
+                "creative": ("71", "Lead with grid-outage resilience and home energy control over raw specs."),
+                "social": ("68", "Tighten installer callback SLAs and milestone updates to protect trust."),
             },
             "brand_logo": {"ok": False, "bytes": None, "source": None, "from_cache": False},
             "brand_intel": (
@@ -493,17 +483,12 @@ def build_sample_showcase(brand_key: str) -> dict:
         "company": "Supertails",
         "official_url": "https://supertails.com",
         "is_showcase": True,
-        "top_recommendations": [
-            "**Pricing & Margin:** Gate steep promo discounts behind private-label or higher-AOV baskets and align shipping thresholds with parcel weight and local zones.",
-            "**Paid & Funnel CRO:** Exclude brand terms from non-brand PMax, tier bidding by margin, and simplify checkout fees/COD prompts to lift conversion.",
-            "**Social & Post-Purchase Trust:** Audit courier call/GPS logs on failed delivery attempts and make order cancellations and refund updates effortless.",
-        ],
         "hooks": {
-            "seo": ("68", "Strong vet & pet-care authority; category and AI answer visibility leaks to quick-commerce and marketplaces."),
-            "paid": ("61", "PMax brand overlap and low-AOV prospecting dilute return; margin-tiered bidding and checkout fixes lift efficiency."),
-            "pricing": ("62", "Aggressive 3P discounts and flat free-shipping thresholds subsidize low-margin food; gating promos lifts margin."),
-            "creative": ("74", "Vet-curated care bundles and 4s visual hooks outperform generic discount ads with verified logo placement."),
-            "social": ("65", "Fear Free vets and fast local stock win trust, while missed delivery attempts and refund friction drive complaints."),
+            "seo": ("68", "Clean faceted filter bloat and build vet nutrition guides to win AI answers."),
+            "paid": ("61", "Exclude brand terms from PMax, tier by margin, and simplify checkout fees."),
+            "pricing": ("62", "Gate top promos behind private-label or higher baskets and weight-tier shipping."),
+            "creative": ("74", "Pair vet-curated care bundles and 4s hooks with verified brand logo guardrails."),
+            "social": ("65", "Audit failed delivery call/GPS logs and streamline cancellation & refund flows."),
         },
         "brand_logo": {"ok": False, "bytes": None, "source": None, "from_cache": False},
         "brand_intel": (
@@ -1152,12 +1137,6 @@ def build_executive_pdf(audit_data: dict) -> bytes:
     pdf.cell(0, 7, f"Executive Intelligence Brief  |  {datetime.now().strftime('%B %d, %Y')}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
 
-    recs = audit_data.get("top_recommendations") or []
-    if recs:
-        pdf.section_title("Top Impactful Recommendations")
-        for r in recs:
-            pdf.render_markdown_block(f"- {r}")
-
     sections = [
         ("1. SEO, AEO & GEO", audit_data.get("e1")),
         ("2. Paid Search & CRO", audit_data.get("e_paid")),
@@ -1277,17 +1256,12 @@ def run_live_audit(company: str):
             "company": company,
             "official_url": official_url,
             "is_showcase": False,
-            "top_recommendations": [
-                f"**Pricing & Monetization:** Audit promo gating, shipping thresholds, and high-margin product/service attach for {company}.",
-                f"**Paid & Funnel CRO:** Isolate brand vs. non-brand efficiency, refine targeting cohorts, and reduce landing/checkout friction for {company}.",
-                f"**Social & Trust Triage:** Track high-severity fulfillment/service complaints and partner with top category creators for {company}.",
-            ],
             "hooks": {
-                "seo": (str(s_seo), f"Organic search, AI answer visibility, and schema audit for {company}."),
-                "paid": (str(s_paid), f"Paid search/social efficiency, landing page UX, and checkout diagnostics for {company}."),
-                "pricing": (str(s_pri), f"Price positioning, shipping/fee thresholds, and margin levers for {company}."),
-                "creative": ("72", f"Brand-aligned ad copy, RSA pack, and visual creatives for {company}."),
-                "social": (str(s_soc), f"Customer sentiment signals, escalation SLAs, and creator outreach for {company}."),
+                "seo": (str(s_seo), f"Fix crawl/schema gaps and target high-intent search & AI answers for {company}."),
+                "paid": (str(s_paid), f"Isolate brand vs. non-brand spend and cut funnel drop-offs for {company}."),
+                "pricing": (str(s_pri), f"Gate promos, tune shipping thresholds, and lift high-margin mix for {company}."),
+                "creative": ("72", f"Test high-contrast hooks and compliant ad copy with logo guardrails for {company}."),
+                "social": (str(s_soc), f"Resolve top fulfillment/service friction and activate category creators for {company}."),
             },
             "brand_logo": brand_logo,
             "brand_intel": brand_dna_text,
@@ -1313,11 +1287,11 @@ st.markdown("""
 </p>
 """, unsafe_allow_html=True)
 
-if "selected_bento_v4" not in st.session_state:
-    st.session_state["selected_bento_v4"] = None
+if "selected_bento_v5" not in st.session_state:
+    st.session_state["selected_bento_v5"] = None
 
-if "last_audit_v4" not in st.session_state:
-    st.session_state["last_audit_v4"] = build_sample_showcase("supertails")
+if "last_audit_v5" not in st.session_state:
+    st.session_state["last_audit_v5"] = build_sample_showcase("supertails")
 
 # Line 1: Live Audit Brand Entry
 c_in, c_run = st.columns([3.6, 1.2], vertical_alignment="center")
@@ -1328,42 +1302,36 @@ with c_in:
         label_visibility="collapsed",
     )
 with c_run:
-    st.markdown('<div class="live-run-btn">', unsafe_allow_html=True)
     if st.button("Run Live Audit", use_container_width=True):
         if not GEMINI_KEY and not CLAUDE_KEY:
             st.error("Backend API key is not configured in Streamlit Secrets.")
         elif not target_company.strip():
             st.warning("Enter a company name first.")
         else:
-            st.session_state["last_audit_v4"] = run_live_audit(target_company.strip())
-            st.session_state["selected_bento_v4"] = None
+            st.session_state["last_audit_v5"] = run_live_audit(target_company.strip())
+            st.session_state["selected_bento_v5"] = None
             st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
-# Line 2: Sample Presets (separate row below live audit with distinct button styling)
+# Line 2: Sample Presets (separate row below live audit with light-grey buttons)
 st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
 p_lbl, p_b1, p_b2, _ = st.columns([2.2, 1.2, 1.2, 1.2], vertical_alignment="center")
 with p_lbl:
     st.markdown('<div class="preset-strip-label">Sample Presets (pre-loaded reference audits for instant exploration):</div>', unsafe_allow_html=True)
 with p_b1:
-    st.markdown('<div class="preset-btn">', unsafe_allow_html=True)
     if st.button("Sample: Supertails", key="preset_supertails", use_container_width=True):
-        st.session_state["last_audit_v4"] = build_sample_showcase("supertails")
-        st.session_state["selected_bento_v4"] = None
+        st.session_state["last_audit_v5"] = build_sample_showcase("supertails")
+        st.session_state["selected_bento_v5"] = None
         st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 with p_b2:
-    st.markdown('<div class="preset-btn">', unsafe_allow_html=True)
     if st.button("Sample: Enphase", key="preset_enphase", use_container_width=True):
-        st.session_state["last_audit_v4"] = build_sample_showcase("enphase")
-        st.session_state["selected_bento_v4"] = None
+        st.session_state["last_audit_v5"] = build_sample_showcase("enphase")
+        st.session_state["selected_bento_v5"] = None
         st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# COMPANY HEADER, TOP RECOMMENDATIONS & 5 UNIFORM BENTO TILES
+# COMPANY HEADER & 5 UNIFORM BENTO TILES
 # -----------------------------------------------------------------------------
-audit = st.session_state.get("last_audit_v4") or build_sample_showcase("supertails")
+audit = st.session_state.get("last_audit_v5") or build_sample_showcase("supertails")
 company = audit.get("company", "Supertails")
 official_url = audit.get("official_url", "")
 hooks = audit.get("hooks") or {}
@@ -1376,7 +1344,7 @@ with h_left:
     if bl.get("ok") and bl.get("bytes"):
         b64 = base64.b64encode(bl["bytes"]).decode("utf-8")
         logo_img_html = f'<img src="data:image/png;base64,{b64}" style="height:28px;width:auto;margin-right:10px;vertical-align:middle;" />'
-    st.markdown(f"### {logo_img_html}{company}", unsafe_allow_html=True)
+    st.markdown(f"<h2>{logo_img_html}{company}</h2>", unsafe_allow_html=True)
     st.caption(f"{official_url}  •  {'Sample Preset' if audit.get('is_showcase') else 'Live Audit'}")
 with h_right:
     st.download_button(
@@ -1387,17 +1355,7 @@ with h_right:
         use_container_width=True,
     )
 
-recs = audit.get("top_recommendations") or []
-if recs:
-    rec_lines = "\n".join(f"- {r}" for r in recs)
-    st.markdown(f"""
-    <div class="rec-box">
-        <div class="rec-heading">Most Impactful Recommendations</div>
-        {rec_lines}
-    </div>
-    """, unsafe_allow_html=True)
-
-selected_bento = st.session_state.get("selected_bento_v4")
+selected_bento = st.session_state.get("selected_bento_v5")
 
 
 def render_uniform_bento_row(keys: list[str]):
@@ -1420,7 +1378,7 @@ def render_uniform_bento_row(keys: list[str]):
             """, unsafe_allow_html=True)
             btn_txt = "Close" if is_sel else "Inspect"
             if st.button(btn_txt, key=f"bento_btn_{m_key}", use_container_width=True):
-                st.session_state["selected_bento_v4"] = None if is_sel else m_key
+                st.session_state["selected_bento_v5"] = None if is_sel else m_key
                 st.rerun()
 
 
@@ -1450,14 +1408,14 @@ if selected_bento in key_lookup:
             st.caption(f"{item.get('engine', '')}  •  {item.get('age', '')}")
 
             if selected_bento == "creative" and audit.get("brand_intel"):
-                st.markdown("#### Brand Design Language & Creative Baseline")
+                st.markdown("### Brand Design Language & Creative Baseline")
                 st.markdown(audit["brand_intel"])
                 q = quote_plus(company)
                 st.markdown(
                     f"[Meta Ad Library ↗](https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=IN&q={q}&search_type=keyword_unordered)  •  "
                     f"[Google Ads Transparency ↗](https://adstransparency.google.com/?region=IN&domain={q})"
                 )
-                st.markdown("#### Next-Gen Ad Copy & Hooks")
+                st.markdown("### Next-Gen Ad Copy & Hooks")
 
             parts = item["content"].split("---DEEP_DIVE---")
             st.markdown(parts[0].strip())
@@ -1474,7 +1432,7 @@ if selected_bento in key_lookup:
                 ready_imgs = [(lbl, im) for lbl, im in imgs if im and im.get("ok") and im.get("bytes")]
                 if ready_imgs:
                     st.markdown("---")
-                    st.markdown("#### Generated Visual Creatives")
+                    st.markdown("### Generated Visual Creatives")
                     for lbl, im in ready_imgs:
                         st.markdown(f"**{lbl}**")
                         st.image(im["bytes"], use_container_width=True)
