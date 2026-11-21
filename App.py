@@ -239,7 +239,7 @@ st.markdown("""
 <div class="apple-eyebrow">Soumya Ranjan Nayak • AI Growth & Pricing Architecture</div>
 <h1 class="apple-hero-title">Executive Intelligence Suite.</h1>
 <p class="apple-hero-subtitle">
-    Specialized multi-agent diagnostics across Organic Search (SEO/AEO/GEO), Paid Acquisition & CRO, Pricing Economics, Brand Creative, and Reputation Triage.
+    Specialized multi-agent diagnostics grounded in live Search + URL Context across SEO/AEO/GEO, Paid Acquisition & CRO, Pricing Economics, Brand Creative, and Reputation Triage.
 </p>
 """, unsafe_allow_html=True)
 
@@ -255,7 +255,7 @@ st.sidebar.header("Studio & Brand Guardrails")
 generate_images = st.sidebar.checkbox("Generate Brand Image & Hook Keyframes", value=True)
 uploaded_logo = st.sidebar.file_uploader("Optional Brand Logo Override (PNG/JPG)", type=["png", "jpg", "jpeg", "webp"])
 force_refresh = st.sidebar.checkbox("Force Refresh (Bypass 2-Day Cache)", value=False)
-st.sidebar.caption("Logo is auto-fetched from the brand's official website and cached for 48 hours. Upload an override only if a site blocks automated logo extraction.")
+st.sidebar.caption("Gemini Search + Live URL Context are active. Completed modules cache for 48 hours.")
 
 # -----------------------------------------------------------------------------
 # CACHE HELPERS (PER-ELEMENT, 2-DAY TTL)
@@ -311,15 +311,19 @@ def format_age(saved_at: float) -> str:
     return f"{hours:.1f}h ago"
 
 # -----------------------------------------------------------------------------
-# MODEL CALLERS & OFFICIAL WEBSITE LOGO FETCHER
+# MODEL CALLERS (WITH GEMINI URL_CONTEXT + GOOGLE_SEARCH & CLAUDE WEB_SEARCH)
 # -----------------------------------------------------------------------------
-def call_gemini(prompt: str, use_search: bool = False):
+def call_gemini(prompt: str, use_search: bool = False, use_url_context: bool = False):
     if not gemini_key:
         raise ValueError("Gemini API key not provided.")
     client = genai.Client(api_key=gemini_key)
-    config = types.GenerateContentConfig(
-        tools=[{"google_search": {}}] if use_search else None
-    )
+    tools = []
+    if use_search:
+        tools.append({"google_search": {}})
+    if use_url_context:
+        tools.append({"url_context": {}})
+    config = types.GenerateContentConfig(tools=tools if tools else None)
+
     last_err = None
     for model_id in ["gemini-4-hydrogen", "gemini-3.8-flash"]:
         try:
@@ -330,37 +334,77 @@ def call_gemini(prompt: str, use_search: bool = False):
             )
             if not res or not res.text:
                 raise RuntimeError(f"Empty response from {model_id}")
-            return res.text, f"Gemini ({model_id})"
+            mode_tag = "Search + URL Context" if (use_search and use_url_context) else ("Search" if use_search else "Direct")
+            return res.text, f"Gemini ({model_id} • {mode_tag})"
         except Exception as e:
-            last_err = e
+            # Fallback without url_context if a specific URL is blocked or unsupported
+            if use_url_context:
+                try:
+                    fallback_tools = [{"google_search": {}}] if use_search else None
+                    res = client.models.generate_content(
+                        model=model_id,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(tools=fallback_tools)
+                    )
+                    if res and res.text:
+                        return res.text, f"Gemini ({model_id} • Search)"
+                except Exception as inner_e:
+                    last_err = inner_e
+            else:
+                last_err = e
     raise last_err
 
-def call_claude(prompt: str):
+def call_claude(prompt: str, use_search: bool = False):
     if not claude_key:
         raise ValueError("Claude API key not provided.")
     client = anthropic.Anthropic(api_key=claude_key)
-    msg = client.messages.create(
-        model="claude-sonnet-5-5",
-        max_tokens=1800,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    text = msg.content[0].text if msg.content else ""
+    kwargs = {
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 1800,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if use_search:
+        kwargs["tools"] = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}]
+    msg = client.messages.create(**kwargs)
+    text_parts = [block.text for block in msg.content if getattr(block, "type", "") == "text" and getattr(block, "text", "")]
+    text = "\n".join(text_parts).strip()
     if not text:
         raise RuntimeError("Empty response from Claude.")
-    return text, "Claude (Sonnet 5.5)"
+    mode_tag = "Web Search" if use_search else "Direct"
+    return text, f"Claude (Sonnet 4.6 • {mode_tag})"
 
-def route_agent(prompt: str, preferred: str = "gemini", use_search: bool = False):
+def route_agent(prompt: str, preferred: str = "gemini", use_search: bool = False, use_url_context: bool = False):
     order = ["gemini", "claude"] if preferred == "gemini" else ["claude", "gemini"]
     errors = []
     for provider in order:
         try:
             if provider == "gemini" and gemini_key:
-                return call_gemini(prompt, use_search=use_search)
+                return call_gemini(prompt, use_search=use_search, use_url_context=use_url_context)
             elif provider == "claude" and claude_key:
-                return call_claude(prompt)
+                return call_claude(prompt, use_search=use_search)
         except Exception as e:
             errors.append(f"{provider.upper()}: {e}")
     raise RuntimeError(" | ".join(errors) if errors else "No API key available.")
+
+def get_or_resolve_official_url(company: str) -> str:
+    """Resolves and caches the brand's canonical homepage URL for URL Context & logo extraction."""
+    cached = load_cached_element(company, "official_url_v1")
+    if cached and cached.get("url"):
+        return cached["url"]
+    default_url = f"https://{_slug(company)}.com"
+    if not gemini_key:
+        return default_url
+    try:
+        domain_raw, _ = call_gemini(
+            f"Return ONLY the canonical official homepage URL (e.g., https://supertails.com) for {company}. No markdown, no extra words.",
+            use_search=True
+        )
+        match = re.search(r"https?://[^\s\"'<>]+", domain_raw.strip())
+        resolved = match.group(0).rstrip(".,)/") if match else default_url
+        save_cached_element(company, "official_url_v1", {"url": resolved})
+        return resolved
+    except Exception:
+        return default_url
 
 def _download_valid_raster_image(url: str) -> bytes | None:
     try:
@@ -386,7 +430,7 @@ def _download_valid_raster_image(url: str) -> bytes | None:
     except Exception:
         return None
 
-def get_or_fetch_brand_logo(company: str, manual_upload=None):
+def get_or_fetch_brand_logo(company: str, base_url: str, manual_upload=None):
     """Fetches official raster logo directly from the brand's website (cached 48h), or uses manual upload."""
     if manual_upload is not None:
         try:
@@ -401,19 +445,9 @@ def get_or_fetch_brand_logo(company: str, manual_upload=None):
 
     cached = load_cached_element(company, "brand_logo_v1", asset_ext="png")
     if cached:
-        return {"ok": True, "bytes": cached["bytes"], "source": cached.get("source", "Official Website"), "from_cache": True}
-
-    if not gemini_key:
-        return {"ok": False, "bytes": None, "source": None, "from_cache": False}
+        return {"ok": True, "bytes": cached["bytes"], "source": cached.get("source", f"Official Site ({base_url})"), "from_cache": True}
 
     try:
-        domain_raw, _ = call_gemini(
-            f"Return ONLY the canonical official homepage URL (e.g., https://supertails.com) for {company}. No markdown, no extra words.",
-            use_search=True
-        )
-        match = re.search(r"https?://[^\s\"'<>]+", domain_raw.strip())
-        base_url = match.group(0).rstrip(".,)/") if match else f"https://{_slug(company)}.com"
-
         req = urllib.request.Request(
             base_url,
             headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36"}
@@ -454,7 +488,7 @@ def get_or_fetch_brand_logo(company: str, manual_upload=None):
 
     return {"ok": False, "bytes": None, "source": None, "from_cache": False}
 
-def get_or_generate_text_element(company: str, element_key: str, prompt: str, preferred: str = "gemini", use_search: bool = False):
+def get_or_generate_text_element(company: str, element_key: str, prompt: str, preferred: str = "gemini", use_search: bool = False, use_url_context: bool = False):
     cached = load_cached_element(company, element_key)
     if cached:
         return {
@@ -466,7 +500,7 @@ def get_or_generate_text_element(company: str, element_key: str, prompt: str, pr
             "error": None
         }
     try:
-        content, engine = route_agent(prompt, preferred=preferred, use_search=use_search)
+        content, engine = route_agent(prompt, preferred=preferred, use_search=use_search, use_url_context=use_url_context)
         save_cached_element(company, element_key, {"content": content, "engine": engine})
         return {
             "ok": True,
@@ -486,8 +520,8 @@ def get_or_generate_text_element(company: str, element_key: str, prompt: str, pr
             "error": str(e)
         }
 
-def get_or_generate_brand_intel(company: str):
-    """Apple-minimalist Brand Design Language & Creative Baseline Audit (No emojis)."""
+def get_or_generate_brand_intel(company: str, official_url: str):
+    """Apple-minimalist Brand Design Language & Creative Baseline Audit grounded in official URL + Search."""
     cached = load_cached_element(company, "brand_ad_intel_v3")
     if cached:
         return {
@@ -499,7 +533,7 @@ def get_or_generate_brand_intel(company: str):
             "error": None
         }
     prompt = f"""
-    Act as VP of Brand & Performance Creative auditing {company}'s current design system and active ads across Meta Ad Library, Google Ads Transparency Center, Instagram, and Google Search.
+    Act as VP of Brand & Performance Creative auditing {company} (official website: {official_url}) across its live storefront, Meta Ad Library, Google Ads Transparency Center, and Google Search.
     STRICT FORMATTING (DO NOT USE ANY EMOJIS):
     - Output EXACTLY these 4 concise bullet points (max 18 words per bullet):
       - **Visual Design Language:** [Exact primary/secondary brand colors, card/UI styling, typography mood, and photography style]
@@ -509,7 +543,7 @@ def get_or_generate_brand_intel(company: str):
     - Immediately follow with a compact 3-row **Creative Baseline & Opportunity Matrix** table:
       | Channel / Format | Current Baseline Pattern | Creative Fatigue / Gap | Next-Gen Hook Angle |
     """
-    return get_or_generate_text_element(company, "brand_ad_intel_v3", prompt, preferred="gemini", use_search=True)
+    return get_or_generate_text_element(company, "brand_ad_intel_v3", prompt, preferred="gemini", use_search=True, use_url_context=True)
 
 def get_or_generate_image_element(company: str, element_key: str, prompt: str, aspect_ratio: str = "1:1", logo_bytes: bytes | None = None):
     cached = load_cached_element(company, element_key, asset_ext="png")
@@ -779,14 +813,15 @@ if run_clicked:
         st.warning("Please enter a target company name.")
     else:
         company = target_company.strip()
-        with st.spinner(f"Orchestrating 5 specialized sub-agents for {company}..."):
-            brand_logo = get_or_fetch_brand_logo(company, manual_upload=uploaded_logo)
-            brand_intel = get_or_generate_brand_intel(company)
+        with st.spinner(f"Orchestrating 5 specialized sub-agents with Live URL Context & Search for {company}..."):
+            official_url = get_or_resolve_official_url(company)
+            brand_logo = get_or_fetch_brand_logo(company, official_url, manual_upload=uploaded_logo)
+            brand_intel = get_or_generate_brand_intel(company, official_url)
             brand_dna_text = brand_intel["content"] if brand_intel["ok"] else f"Authentic commercial brand aesthetic for {company}."
 
-            # Agent 1: Dedicated SEO, AEO & GEO Audit
+            # Agent 1: Dedicated SEO, AEO & GEO Audit (Grounded with Live URL Context + Search)
             p1 = f"""
-            Act as Principal SEO, AEO (Answer Engine Optimization), and GEO (Generative Engine Optimization) Architect auditing {company}.
+            Act as Principal SEO, AEO (Answer Engine Optimization), and GEO (Generative Engine Optimization) Architect auditing {company} (inspecting live storefront URL: {official_url} alongside live search index signals).
             STRICT FORMATTING:
             - Start with a compact Markdown scorecard table with EXACT columns (use integer-only numbers like 68 in Score /100, never '68/100'):
               | Search Pillar | Score /100 | Observable Diagnostic Signal | Primary Gap |
@@ -803,9 +838,9 @@ if run_clicked:
                  - **[Category] Problem -> Fix:** [Concise problem diagnosis] -> [Exact technical/schema/consensus implementation].
             """
 
-            # Agent 2: Dedicated Paid Search, Shopping & Funnel CRO Audit
+            # Agent 2: Dedicated Paid Search, Shopping & Funnel CRO Audit (Grounded with Live URL Context + Search)
             p_paid = f"""
-            Act as VP of Performance Marketing & Conversion Rate Optimization (CRO) auditing {company} using live web and ad signals.
+            Act as VP of Performance Marketing & Conversion Rate Optimization (CRO) auditing {company} (inspecting live storefront UX/checkout signals at {official_url} and active ad signals).
             STRICT FORMATTING:
             - Start with a compact Markdown scorecard table with EXACT columns (use integer-only numbers like 61 in Score /100, never '61/100'):
               | Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal | Primary Leakage |
@@ -821,9 +856,9 @@ if run_clicked:
                  | Test Hypothesis | Primary Metric | Guardrail Metric | Expected Impact |
             """
 
-            # Agent 3: Pricing & Unit Economics
+            # Agent 3: Pricing & Unit Economics (Grounded with Live URL Context + Search)
             p2 = f"""
-            Act as VP of Pricing & Commercial Strategy auditing {company} using live web pricing, shipping, fee, and product-mix signals.
+            Act as VP of Pricing & Commercial Strategy auditing {company} (inspecting live pricing, shipping thresholds, fees, and product mix at {official_url} plus market search signals).
             STRICT FORMATTING:
             - Line 1 MUST be a bold 1-sentence executive summary of the brand's current pricing model, formatted strictly as:
               **Current Pricing Strategy:** [1 concise sentence summarizing their price positioning, shipping/fee thresholds, discounting posture, and core monetization model].
@@ -858,9 +893,9 @@ if run_clicked:
                  | Ad Variant | Hook / Angle | Target Persona | Primary KPI |
             """
 
-            # Agent 5: Upgraded Social, Brand Triage & Top 10 Creator Outreach
+            # Agent 5: Social, Brand Triage & Top 10 Creator Outreach
             p4 = f"""
-            Act as VP of Brand Reputation, Social Listening & Creator Partnerships auditing {company} using live web, Reddit, Trustpilot, review aggregator, and YouTube search signals.
+            Act as VP of Brand Reputation, Social Listening & Creator Partnerships auditing {company} ({official_url}) using live web, Reddit, Trustpilot, review aggregator, and YouTube search signals.
             STRICT FORMATTING (DO NOT USE ANY EMOJIS):
             - Line 1 MUST be a bold 1-sentence executive summary of the brand's current public reputation posture, formatted strictly as:
               **Current Brand Sentiment Archetype:** [1 concise sentence contrasting their core brand strengths/advocacy against their primary public friction points].
@@ -882,11 +917,11 @@ if run_clicked:
                  | Rank | Creator / Channel Name | Primary Platform | Category & Audience Fit | Recommended Collab Angle |
             """
 
-            e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v3", p1, preferred="gemini", use_search=True)
-            e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v2", p_paid, preferred="claude", use_search=True)
-            e2 = get_or_generate_text_element(company, "agent2_pricing_v2", p2, preferred="claude", use_search=True)
+            e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v3", p1, preferred="gemini", use_search=True, use_url_context=True)
+            e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v2", p_paid, preferred="claude", use_search=True, use_url_context=True)
+            e2 = get_or_generate_text_element(company, "agent2_pricing_v2", p2, preferred="claude", use_search=True, use_url_context=True)
             e3 = get_or_generate_text_element(company, "agent3_creative_v2", p3, preferred="claude")
-            e4 = get_or_generate_text_element(company, "agent4_social_v2", p4, preferred="gemini", use_search=True)
+            e4 = get_or_generate_text_element(company, "agent4_social_v2", p4, preferred="gemini", use_search=True, use_url_context=True)
 
             img_meta = None
             img_banner = None
@@ -915,6 +950,7 @@ if run_clicked:
 
             st.session_state["last_audit"] = {
                 "company": company,
+                "official_url": official_url,
                 "brand_logo": brand_logo,
                 "brand_intel": brand_intel,
                 "e1": e1,
@@ -933,6 +969,7 @@ if run_clicked:
 audit = st.session_state.get("last_audit")
 if audit:
     company = audit["company"]
+    official_url = audit.get("official_url", "")
     tracked_items = [
         audit.get("brand_intel"), audit["e1"], audit["e_paid"], audit["e2"], audit["e3"], audit["e4"],
         audit.get("img_meta"), audit.get("img_banner"), audit.get("img_hook_frame")
@@ -946,7 +983,7 @@ if audit:
     with col_status:
         st.markdown(f"""
         <div class="status-strip">
-            <span><strong>{company}</strong>  •  5-Agent Suite Ready</span>
+            <span><strong>{company}</strong>  •  <a href="{official_url}" target="_blank" style="color:#0071E3;text-decoration:none;">{official_url}</a></span>
             <span style="color:#6E6E73;">Cache Hits: <strong>{cached_count}</strong>  |  Fresh: <strong>{fresh_count}</strong>  |  Failed: <strong>{failed_count}</strong></span>
         </div>
         """, unsafe_allow_html=True)
@@ -995,7 +1032,7 @@ if audit:
             "Organic Search Intelligence: SEO, AEO & GEO",
             audit["e1"],
             "View AI Prompt Visibility Matrix & Technical SEO Blueprint",
-            governance_footnote="Governance Note: Diagnostic signals are synthesized via live AI search grounding; verify named entities and exact review counts prior to board distribution."
+            governance_footnote="Governance Note: Diagnostic signals are synthesized via live AI search & URL context grounding; verify named entities and exact review counts prior to board distribution."
         )
 
     with tab2:
@@ -1003,7 +1040,7 @@ if audit:
             "Paid Acquisition, Shopping & Funnel CRO",
             audit["e_paid"],
             "View PMax Architecture, Funnel Fixes & Experiment Backlog",
-            governance_footnote="Governance Note: Benchmarks reflect observable ad/site signals and industry unit-economics heuristics; validate against live ad-account telemetry."
+            governance_footnote="Governance Note: Benchmarks reflect observable live storefront/ad signals and industry unit-economics heuristics; validate against live ad-account telemetry."
         )
 
     with tab3:
@@ -1105,5 +1142,5 @@ if audit:
             "Brand Reputation, Social Listening & Creator Partnerships",
             audit["e4"],
             "View Rapid Triage Playbook, Escalation SLAs & Top 10 Creator Outreach Roster",
-            governance_footnote="Governance Note: Customer feedback snippets, scores, and creator handles are synthesized via live search grounding; verify active handle metrics and CS ticket taxonomy before outreach."
+            governance_footnote="Governance Note: Customer feedback snippets, scores, and creator handles are synthesized via live search & URL context grounding; verify active handle metrics and CS ticket taxonomy before outreach."
         )
