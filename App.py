@@ -55,7 +55,7 @@ st.markdown("""
 
 :root {
     --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Arial, sans-serif;
-    --fs-hero: 5.3rem;
+    --fs-hero: 3.95rem;
     --fs-h2: 1.45rem;
     --fs-h3: 1.15rem;
     --fs-body: 0.95rem;
@@ -82,10 +82,10 @@ html, body, [class*="css"], .stApp, .stMarkdown, p, li, label, input, div, span,
 h1.suite-title, div.suite-title, .suite-title {
     font-size: var(--fs-hero) !important;
     font-weight: 700 !important;
-    letter-spacing: -0.035em !important;
-    line-height: 1.08 !important;
+    letter-spacing: -0.03em !important;
+    line-height: 1.1 !important;
     color: #1D1D1F !important;
-    margin: 0 0 0.65rem 0 !important;
+    margin: 0 0 0.55rem 0 !important;
 }
 
 h2 {
@@ -112,13 +112,13 @@ h3 {
     letter-spacing: 0.04em !important;
     text-transform: uppercase !important;
     color: var(--apple-blue) !important;
-    margin-bottom: 0.4rem !important;
+    margin-bottom: 0.35rem !important;
 }
 
 .suite-subtitle {
-    font-size: 1.08rem !important;
+    font-size: 1.06rem !important;
     color: #6E6E73 !important;
-    margin: 0 0 1.3rem 0 !important;
+    margin: 0 0 1.25rem 0 !important;
     line-height: 1.5 !important;
     max-width: 820px;
 }
