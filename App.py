@@ -213,21 +213,25 @@ div[data-testid="stButton"] > button:hover {
     color: #FFFFFF !important;
 }
 
-/* Apple secondary pill outline style (Sample: Supertails, Sample: Enphase, Download PDF) */
-button[aria-label*="Sample:"],
-button[aria-label*="Sample:"] p,
-button[aria-label*="Sample:"] span,
+/* Apple secondary pill outline style for Download PDF and Sample Preset buttons */
 div[data-testid="stDownloadButton"] > button,
 div[data-testid="stDownloadButton"] > button p,
-div[data-testid="stDownloadButton"] > button span {
+div[data-testid="stDownloadButton"] > button span,
+div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button,
+div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button p,
+div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button span,
+div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button,
+div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button p,
+div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button span {
     font-family: var(--font-ui) !important;
     font-weight: 500 !important;
     font-size: var(--fs-body) !important;
     color: var(--apple-blue) !important;
 }
 
-button[aria-label*="Sample:"],
-div[data-testid="stDownloadButton"] > button {
+div[data-testid="stDownloadButton"] > button,
+div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button,
+div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button {
     background-color: transparent !important;
     border: 1.5px solid var(--apple-blue) !important;
     border-radius: 999px !important;
@@ -235,8 +239,9 @@ div[data-testid="stDownloadButton"] > button {
     transition: background-color 0.15s ease, color 0.15s ease !important;
 }
 
-button[aria-label*="Sample:"]:hover,
-div[data-testid="stDownloadButton"] > button:hover {
+div[data-testid="stDownloadButton"] > button:hover,
+div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button:hover,
+div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button:hover {
     background-color: rgba(0, 113, 227, 0.06) !important;
     border-color: var(--apple-blue-hover) !important;
     color: var(--apple-blue-hover) !important;
@@ -1343,11 +1348,13 @@ p_lbl, p_b1, p_b2, _ = st.columns([2.2, 1.25, 1.25, 1.1], vertical_alignment="ce
 with p_lbl:
     st.markdown('<div class="preset-strip-label">Sample Presets (pre-loaded reference audits for instant exploration):</div>', unsafe_allow_html=True)
 with p_b1:
+    st.markdown('<span class="sample-btn-hook" style="display:none;"></span>', unsafe_allow_html=True)
     if st.button("Sample: Supertails", key="preset_supertails", use_container_width=True):
         st.session_state["last_audit_v5"] = build_sample_showcase("supertails")
         st.session_state["selected_bento_v5"] = None
         st.rerun()
 with p_b2:
+    st.markdown('<span class="sample-btn-hook" style="display:none;"></span>', unsafe_allow_html=True)
     if st.button("Sample: Enphase", key="preset_enphase", use_container_width=True):
         st.session_state["last_audit_v5"] = build_sample_showcase("enphase")
         st.session_state["selected_bento_v5"] = None
