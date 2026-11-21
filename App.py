@@ -16,7 +16,7 @@ from datetime import datetime
 
 # Page Config
 st.set_page_config(
-    page_title="Growth & Creative Intelligence — Executive Suite",
+    page_title="Executive Intelligence Suite — Growth & Pricing Architecture",
     page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -24,7 +24,24 @@ st.set_page_config(
 
 CACHE_DIR = ".audit_cache"
 TTL_SECONDS = 2 * 24 * 3600  # 2 days (48 hours)
+MAX_LOGO_BYTES = 5 * 1024 * 1024  # 5 MB realistic cap for brand logos
 os.makedirs(CACHE_DIR, exist_ok=True)
+
+
+def _get_secret(key: str, default: str = "") -> str:
+    try:
+        if key in st.secrets:
+            val = st.secrets[key]
+            if val is not None:
+                return str(val).strip()
+    except Exception:
+        pass
+    return os.getenv(key, default).strip()
+
+
+GEMINI_KEY = _get_secret("GEMINI_API_KEY")
+CLAUDE_KEY = _get_secret("ANTHROPIC_API_KEY")
+BACKEND_FORCE_REFRESH = _get_secret("FORCE_REFRESH", "false").lower() in ("1", "true", "yes")
 
 # -----------------------------------------------------------------------------
 # APPLE LIGHT MODE DESIGN SYSTEM (CSS)
@@ -40,7 +57,7 @@ html, body, [class*="css"], .stApp {
 
 .block-container {
     max-width: 1140px !important;
-    padding-top: 2.5rem !important;
+    padding-top: 2.2rem !important;
     padding-bottom: 4rem !important;
 }
 
@@ -56,39 +73,38 @@ section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3 {
 }
 
 .apple-eyebrow {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #0071E3;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.3rem;
 }
 .apple-hero-title {
-    font-size: 2.6rem;
+    font-size: 2.5rem;
     font-weight: 700;
     letter-spacing: -0.03em;
     line-height: 1.1;
     color: #1D1D1F;
-    margin: 0 0 0.6rem 0;
+    margin: 0 0 0.55rem 0;
 }
 .apple-hero-subtitle {
-    font-size: 1.12rem;
+    font-size: 1.08rem;
     font-weight: 400;
     line-height: 1.45;
     color: #6E6E73;
-    max-width: 780px;
-    margin: 0 0 1.8rem 0;
+    max-width: 800px;
+    margin: 0 0 1.5rem 0;
 }
 
 div[data-testid="stTextInput"] input {
     background-color: #FFFFFF !important;
     border: 1px solid #D2D2D7 !important;
     border-radius: 12px !important;
-    padding: 0.75rem 1rem !important;
-    font-size: 1rem !important;
+    padding: 0.72rem 1rem !important;
+    font-size: 0.98rem !important;
     color: #1D1D1F !important;
     box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 div[data-testid="stTextInput"] input:focus {
     border-color: #0071E3 !important;
@@ -99,16 +115,16 @@ div[data-testid="stButton"] > button,
 div[data-testid="stDownloadButton"] > button {
     border-radius: 980px !important;
     font-weight: 500 !important;
-    font-size: 0.95rem !important;
-    padding: 0.55rem 1.4rem !important;
+    font-size: 0.92rem !important;
+    padding: 0.52rem 1.3rem !important;
     letter-spacing: -0.01em !important;
-    transition: all 0.2s ease !important;
+    transition: all 0.18s ease !important;
     border: none !important;
 }
 div[data-testid="stButton"] > button {
     background-color: #0071E3 !important;
     color: #FFFFFF !important;
-    box-shadow: 0 2px 8px rgba(0, 113, 227, 0.22) !important;
+    box-shadow: 0 2px 8px rgba(0, 113, 227, 0.2) !important;
 }
 div[data-testid="stButton"] > button:hover {
     background-color: #0077ED !important;
@@ -125,31 +141,98 @@ div[data-testid="stDownloadButton"] > button:hover {
     border-color: #0071E3 !important;
 }
 
-div[data-baseweb="tab-list"] {
-    background-color: #F5F5F7 !important;
-    padding: 5px !important;
-    border-radius: 980px !important;
-    border: 1px solid #E5E5EA !important;
-    gap: 4px !important;
-    margin-bottom: 1.2rem !important;
+.command-banner {
+    background: linear-gradient(135deg, #FFFFFF 0%, #F5F7FA 100%);
+    border: 1px solid #E5E5EA;
+    border-radius: 20px;
+    padding: 1.3rem 1.6rem;
+    margin: 1rem 0 1.2rem 0;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
 }
-button[data-baseweb="tab"] {
-    border-radius: 980px !important;
-    padding: 0.45rem 1.05rem !important;
-    font-size: 0.88rem !important;
-    font-weight: 500 !important;
-    color: #6E6E73 !important;
-    background-color: transparent !important;
-    border: none !important;
+.kpi-mini-card {
+    background-color: #FFFFFF;
+    border: 1px solid #E5E5EA;
+    border-radius: 14px;
+    padding: 0.85rem 1rem;
+    height: 100%;
 }
-button[data-baseweb="tab"][aria-selected="true"] {
-    background-color: #FFFFFF !important;
-    color: #1D1D1F !important;
-    font-weight: 600 !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+.kpi-mini-label {
+    font-size: 0.73rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6E6E73;
+    margin-bottom: 0.25rem;
 }
-div[data-baseweb="tab-highlight"], div[data-baseweb="tab-border"] {
-    display: none !important;
+.kpi-mini-value {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #1D1D1F;
+    line-height: 1.35;
+}
+
+.bento-tile {
+    background-color: #FFFFFF;
+    border: 1.5px solid #E5E5EA;
+    border-radius: 18px;
+    padding: 1.05rem 1.15rem 0.75rem 1.15rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+    transition: all 0.18s ease;
+    margin-bottom: 0.45rem;
+}
+.bento-tile-active {
+    background-color: #F4F9FF;
+    border: 1.8px solid #0071E3;
+    box-shadow: 0 6px 18px rgba(0, 113, 227, 0.12);
+}
+.bento-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.45rem;
+}
+.bento-title {
+    font-size: 0.96rem;
+    font-weight: 700;
+    color: #1D1D1F;
+    letter-spacing: -0.015em;
+}
+.score-pill-warn {
+    background-color: #FFF2F0;
+    color: #CF1322;
+    border: 1px solid #FFCCC7;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.15rem 0.55rem;
+    border-radius: 980px;
+    white-space: nowrap;
+}
+.score-pill-mid {
+    background-color: #FFFBE6;
+    color: #AD6800;
+    border: 1px solid #FFE58F;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.15rem 0.55rem;
+    border-radius: 980px;
+    white-space: nowrap;
+}
+.score-pill-good {
+    background-color: #F6FFED;
+    color: #237804;
+    border: 1px solid #B7EB8F;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.15rem 0.55rem;
+    border-radius: 980px;
+    white-space: nowrap;
+}
+.bento-hook {
+    font-size: 0.84rem;
+    line-height: 1.42;
+    color: #424245;
+    margin-bottom: 0.2rem;
 }
 
 .apple-section-header {
@@ -215,22 +298,411 @@ details[data-testid="stExpander"] summary {
     font-weight: 500 !important;
     color: #0071E3 !important;
 }
-
-.status-strip {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    background-color: #FFFFFF;
-    border: 1px solid #E5E5EA;
-    border-radius: 14px;
-    padding: 0.75rem 1.2rem;
-    margin: 1rem 0 1.4rem 0;
-    font-size: 0.88rem;
-    color: #1D1D1F;
-}
 </style>
 """, unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# PRE-LOADED EXECUTIVE SHOWCASE SNAPSHOTS (INSTANT DEMO FOR VISITORS)
+# -----------------------------------------------------------------------------
+MODULE_ORDER = ["seo", "paid", "pricing", "creative", "social"]
+
+MODULE_META = {
+    "seo": {
+        "short_title": "SEO, AEO & GEO",
+        "full_title": "Organic Search Intelligence: SEO, AEO & GEO",
+        "expander": "View AI Prompt Visibility Matrix & Technical SEO Blueprint",
+        "governance": "Governance Note: Diagnostic signals are synthesized via live AI search & URL context grounding; verify named entities and exact review counts prior to board distribution."
+    },
+    "paid": {
+        "short_title": "Paid Search & CRO",
+        "full_title": "Paid Acquisition, Shopping & Funnel CRO",
+        "expander": "View PMax Architecture, Funnel Fixes & Experiment Backlog",
+        "governance": "Governance Note: Benchmarks reflect observable live storefront/ad signals and industry unit-economics heuristics; validate against live ad-account telemetry."
+    },
+    "pricing": {
+        "short_title": "Pricing & Unit Economics",
+        "full_title": "Pricing Architecture & Unit Economics",
+        "expander": "View Tier Optimization Playbook & Unit-Economics Impact Matrix",
+        "governance": "Governance Note: Pricing signals reflect live storefront/search observations; model exact contribution-margin sensitivity against internal SKU COGS and freight tables."
+    },
+    "creative": {
+        "short_title": "Ad Creative Studio",
+        "full_title": "Next-Gen Ad Copy & Creative Hooks",
+        "expander": "View Creative Rationale & A/B Testing Matrix",
+        "governance": "Governance Note: Ad copy follows strict platform character caps; visual concepts are AI-rendered prototypes for creative direction and A/B testing."
+    },
+    "social": {
+        "short_title": "Social & Brand Triage",
+        "full_title": "Brand Reputation, Social Listening & Creator Partnerships",
+        "expander": "View Rapid Triage Playbook, Escalation SLAs & Top 10 Creator Outreach Roster",
+        "governance": "Governance Note: Customer feedback snippets, scores, and creator handles are synthesized via live search & URL context grounding; verify active handle metrics and CS ticket taxonomy before outreach."
+    }
+}
+
+
+def _sample_item(content: str, engine: str = "Executive Snapshot"):
+    return {"ok": True, "content": content, "engine": engine, "from_cache": True, "age": "curated demo", "error": None}
+
+
+def build_sample_showcase(brand_key: str) -> dict:
+    if brand_key == "enphase":
+        return {
+            "company": "Enphase Energy",
+            "official_url": "https://enphase.com",
+            "is_showcase": True,
+            "kpis": {
+                "margin_lever": "IQ Battery + IQ8 attach & installer tiering (+240 bps)",
+                "funnel_leak": "Long homeowner solar payback & installer quote friction",
+                "reputation_risk": "Firmware/monitoring tickets & regional installer SLAs"
+            },
+            "tile_hooks": {
+                "seo": ("67", "Strong microinverter authority, but AI answer engines need sharper homeowner payback & grid-outage comparisons."),
+                "paid": ("63", "High-intent solar search captures demand; simplifying homeowner savings calculators lifts qualified lead CVR."),
+                "pricing": ("64", "Enphase pairs premium IQ microinverters and IQ Batteries with installer volume tiers and storage-attach incentives."),
+                "creative": ("71", "Lead with outage resilience, 25-year reliability, and whole-home energy independence over spec-sheet jargon."),
+                "social": ("68", "Homeowners praise app telemetry and backup reliability; fast installer escalation closes regional service gaps.")
+            },
+            "brand_logo": {"ok": False, "bytes": None, "source": None, "from_cache": False},
+            "brand_intel": _sample_item(
+                "- **Visual Design Language:** Crisp solar-white surfaces, electric blue & emerald accents, clean technical cards, and bright residential photography.\n"
+                "- **Meta & Social Ad Patterns:** Homeowner energy independence stories, blackout/outage hooks, and installer co-marketing creatives.\n"
+                "- **Google Search & Shopping Messaging:** Microinverter reliability, battery storage readiness, and local installer discovery CTAs.\n"
+                "- **Core Audience & Trust Triggers:** Homeowners and certified solar installers anchored by engineering reliability and app monitoring.\n\n"
+                "| Channel / Format | Current Baseline Pattern | Creative Fatigue / Gap | Next-Gen Hook Angle |\n"
+                "| --- | --- | --- | --- |\n"
+                "| Paid Social & Video | Hardware & solar panel overview ads | Spec-heavy framing under-indexes on outage peace-of-mind | 4s blackout-to-backup homeowner hook |\n"
+                "| Search & Demand Gen | Broad solar & microinverter queries | Generic homeowner vs. installer intent mix | Segmented savings & certified-installer proof |\n"
+                "| Web & Lead Funnels | Multi-step system sizing & installer handoff | Decision drop-off before local quote request | Instant bill-offset & battery-readiness check |",
+                "Gemini Search + URL Context"
+            ),
+            "e1": _sample_item(
+                "| Search Pillar | Score /100 | Observable Diagnostic Signal | Primary Gap |\n"
+                "| --- | --- | --- | --- |\n"
+                "| 1. Technical & Programmatic SEO | 72 | Deep product/solution pages and regional localization across key markets | Faceted installer/product comparison indexation & speed hygiene |\n"
+                "| 2. AEO | 66 | Strong technical definitions; opportunities to win concise homeowner FAQ snippets | Structured comparison blocks for NEM/net-metering & battery sizing |\n"
+                "| 3. GEO | 64 | High brand recognition in solar Q&A; needs clearer positioning on storage & backup | Authoritative citation assets on microinverter vs. string inverter TCO |\n"
+                "| 4. Entity & Local Schema | 69 | Strong Organization & Product entity graph; regional installer pages vary | Deeper local/service schema & consistent regional NAP signals |\n"
+                "| 5. Off-Site Consensus & Digital PR | 65 | Active homeowner forums and industry press coverage | Structured third-party review & installer proof aggregation |\n\n"
+                "- Build comparison hubs answering microinverter vs. string inverter reliability and payback.\n"
+                "- Add concise FAQ schema blocks on battery backup sizing and utility tariff shifts.\n"
+                "- Strengthen regional homeowner proof and installer directory pages for local search.\n"
+                "- Publish benchmark guides on whole-home energy management and EV charging integration.\n"
+                "---DEEP_DIVE---\n"
+                "| High-Intent Buyer Prompt | Current AI Winner | Enphase Energy Vulnerability | Asset Needed to Win |\n"
+                "| --- | --- | --- | --- |\n"
+                "| Best home solar microinverter & battery setup | Solar review aggregators | Technical specs outweigh plain-English homeowner outcomes | Side-by-side reliability & backup sizing guide |\n"
+                "| How much does solar + battery backup save | Utility & solar calculators | Regional tariff rules differ across states/markets | Interactive payback & tariff-impact explainer |\n"
+                "| Reliable solar installer near me | Local directories & Maps | Lead handoff friction between brand & installers | Verified installer checklist & local proof hub |\n"
+                "| Microinverter vs string inverter maintenance | Forum & installer threads | Scattered anecdotal comparisons | Transparent lifecycle & warranty comparison table |\n\n"
+                "### Technical, Entity & Off-Site Execution Plan\n"
+                "- **[AEO] Problem -> Fix:** Complex technical copy buries direct answers -> Add 40-word answer-first blocks on FAQ and sizing pages.\n"
+                "- **[GEO] Problem -> Fix:** LLMs cite third-party forums for TCO comparisons -> Publish transparent lifecycle reliability and TCO benchmarks.\n"
+                "- **[Schema] Problem -> Fix:** Inconsistent structured data across regional/product templates -> Standardize Product, FAQPage, and Organization JSON-LD.\n"
+                "- **[SEO] Problem -> Fix:** Thin regional landing pages compete with generic terms -> Enrich local pages with real regional case studies and incentives.\n"
+                "- **[Off-Site] Problem -> Fix:** Positive homeowner app stories stay siloed -> Syndicate verified homeowner case studies and PR proof."
+            ),
+            "e_paid": _sample_item(
+                "| Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal | Primary Leakage |\n"
+                "| --- | --- | --- | --- |\n"
+                "| 1. Non-Brand Search & PMax Efficiency | 65 | High intent on solar/storage terms alongside broad hardware queries | Broad non-brand clicks before homeowner readiness qualification |\n"
+                "| 2. Paid Social Acquisition & Creative Fatigue | 61 | Strong visual energy assets; repeated hardware framing in prospecting | Top-of-funnel ads over-index on specs vs. bill/outage triggers |\n"
+                "| 3. Landing Page & Product-to-Cart CRO | 62 | Clear product overview; multi-step path to qualified lead/quote | High friction before homeowners see tailored system fit |\n"
+                "| 4. Checkout, Booking & Post-Click Friction | 64 | Installer routing exists; speed-to-lead varies by partner | Delayed installer follow-up erodes high-intent lead conversion |\n\n"
+                "- Separate homeowner lead-gen campaigns from installer-focused acquisition.\n"
+                "- Lead paid social hooks with power-outage protection and monthly bill control.\n"
+                "- Shorten initial landing-page qualification to 3 quick inputs before quote capture.\n"
+                "- Track qualified-lead-to-proposal conversion rather than raw form fills.\n"
+                "---DEEP_DIVE---\n"
+                "### Paid Architecture & Funnel Fixes\n"
+                "- **[Search/PMax] Problem -> Fix:** Blended brand and non-brand signals mask true acquisition efficiency -> Split brand defense from non-brand storage/solar capture.\n"
+                "- **[Paid Social] Problem -> Fix:** Static hardware creatives fatigue among homeowners -> Test outage-resilience and bill-predictability video hooks.\n"
+                "- **[Landing Page] Problem -> Fix:** Long forms depress mobile completion rates -> Progressive-disclose system estimates before asking for contact details.\n"
+                "- **[Post-Click] Problem -> Fix:** Slow partner handoffs lose hot prospects -> Enforce instant confirmation and SLA-tracked installer routing.\n\n"
+                "### CRO & Paid Experiment Backlog\n"
+                "| Test Hypothesis | Primary Metric | Guardrail Metric | Expected Impact |\n"
+                "| --- | --- | --- | --- |\n"
+                "| Progressive 3-step solar + battery estimator on mobile LPs | Qualified Lead CVR | Cost per Qualified Lead | +15-22% mobile form completion |\n"
+                "| Outage & backup hook vs. hardware spec hook on Meta/YouTube | Thumbstop & Qualified CTR | Lead Quality Score | +18-25% engaged click rate |\n"
+                "| Instant next-step timeline after quote submission | Proposal Booking Rate | Installer SLA Breach Rate | +10-16% speed-to-contact lift |\n"
+                "| Dedicated high-intent storage/backup search ad groups | Storage Lead Share | Blended Non-Brand CPA | +12-18% higher-AOV inquiry mix |"
+            ),
+            "e2": _sample_item(
+                "**Current Pricing Strategy:** Enphase pairs premium IQ microinverter and battery hardware pricing with multi-tier installer commercial programs, volume incentives, and high-margin software/monitoring value.\n\n"
+                "| Pricing & Economics Pillar | Score /100 | Observable Pricing Signal | Margin / LTV Leakage |\n"
+                "| --- | --- | --- | --- |\n"
+                "| 1. Core SKU & Marketplace Price Positioning | 68 | Premium hardware positioning anchored by reliability and warranty | Price sensitivity against lower-cost string/hybrid alternatives |\n"
+                "| 2. Shipping, Fee & Basket Threshold Architecture | 62 | Commercial/installer logistics and regional fulfillment tiers | Freight/handling friction on smaller or split replenishment orders |\n"
+                "| 3. Subscription & Repeat-Cohort Monetization | 63 | Ongoing monitoring and energy-management ecosystem value | Under-monetized post-install upgrade and expansion touchpoints |\n"
+                "| 4. Private-Label & High-Margin Service Mix | 64 | Integrated microinverter + battery + smart energy ecosystem | Attach-rate gap between solar core and battery/software expansion |\n\n"
+                "- Bundle microinverters, battery storage, and smart load management into clear packages.\n"
+                "- Tie installer volume rebates to multi-product system attach rates.\n"
+                "- Standardize transparent commercial/freight terms across order tiers.\n"
+                "- Create clear post-install expansion paths for battery add-ons and EV readiness.\n"
+                "---DEEP_DIVE---\n"
+                "### Tier Optimization & Margin Execution Plan\n"
+                "- **[Package Tiers] Problem -> Fix:** A la carte hardware quotes obscure total system value -> Offer Good/Better/Best solar + storage + smart-control tiers.\n"
+                "- **[Partner Incentives] Problem -> Fix:** Flat volume discounts do not reward ecosystem attach -> Weight rebates toward battery and smart-panel attachment.\n"
+                "- **[Freight & Fees] Problem -> Fix:** Fragmented order sizes create logistics overhead -> Incentivize consolidated project/batch ordering thresholds.\n"
+                "- **[Expansion LTV] Problem -> Fix:** Post-install engagement plateaus after commissioning -> Trigger timely storage/EV expansion offers via app milestones.\n\n"
+                "### Unit Economics & Pricing Impact Matrix\n"
+                "| Pricing Lever | Target Cohort | Mechanism | Margin / LTV Lift | Volume / Churn Guardrail |\n"
+                "| --- | --- | --- | --- | --- |\n"
+                "| Solar + Battery Tiered Bundles | New residential buyers | Clear package pricing with backup tiers | +200-280 bps blended margin | Preserve entry solar option for budget buyers |\n"
+                "| Attach-Weighted Partner Tiers | Certified installers | Higher rebates on bundled storage/EMS orders | +12-18% storage attach rate | Protect installer net margin on competitive bids |\n"
+                "| Consolidated Batch Ordering | Regional partners/orders | Threshold-based logistics & fulfillment terms | -100-140 bps freight drag | Avoid minimum-order barriers for small pilots |\n"
+                "| Post-Install Expansion Offers | Existing app users | Usage-triggered storage & load-control upgrades | +15-22% expansion LTV | Keep app experience helpful, never spammy |"
+            ),
+            "e3": _sample_item(
+                "1. **Google Search RSA Pack**\n"
+                "- Headline 1: Smart Solar & Battery Systems\n"
+                "- Headline 2: Reliable Power When Grid Drops\n"
+                "- Headline 3: Connect With Certified Pros\n"
+                "- Description 1: Protect your home with reliable solar and battery storage. Get a tailored system plan.\n"
+                "- Description 2: Monitor energy in real time and cut grid reliance. Request your free home assessment.\n\n"
+                "2. **Meta Feed Ad**\n"
+                "- Primary Text: Keep lights, Wi-Fi, and essential appliances running smoothly with smart solar + battery storage.\n"
+                "- Headline: Smart Solar + Backup Made Simple\n"
+                "- CTA: Learn More\n\n"
+                "3. **4-Second Video Hook**\n"
+                "- Visual Scene: Home evening lights stay steady while neighboring street goes dark; homeowner checks clean phone app.\n"
+                "- Voiceover/Text Overlay: Outage outside. Power inside. (6 words)\n"
+                "---DEEP_DIVE---\n"
+                "### Creative Rationale & Baseline Evolution\n"
+                "- **[Meta/Video] Problem -> Fix:** Technical hardware visuals feel abstract to everyday homeowners -> Lead with relatable home backup and app clarity in 4 seconds.\n"
+                "- **[Search RSA] Problem -> Fix:** Overly broad headlines dilute intent -> Pair outcome-led headlines with direct assessment CTAs.\n"
+                "- **[Funnel Alignment] Problem -> Fix:** Disconnect between ad promise and quote page -> Carry the exact backup/savings framing onto the landing hero.\n\n"
+                "### Creative A/B Testing Matrix\n"
+                "| Ad Variant | Hook / Angle | Target Persona | Primary KPI |\n"
+                "| --- | --- | --- | --- |\n"
+                "| Variant A (Outage Hook) | Seamless backup during grid dips | Outage-prone homeowners | Qualified Lead CVR |\n"
+                "| Variant B (Bill Control) | Predictable energy & self-consumption | High-bill / EV homeowners | Cost per Qualified Lead |\n"
+                "| Variant C (App Telemetry) | Real-time visibility & control in-app | Tech-forward homeowners | 3s/ThruPlay & LP CTR |\n"
+                "| Variant D (Installer Trust) | Certified local execution & warranty | Cautious first-time buyers | Proposal Completion Rate |"
+            ),
+            "e4": _sample_item(
+                "**Current Brand Sentiment Archetype:** Enphase Energy commands strong engineering trust and app loyalty among solar homeowners, while reputation risks center on installer execution quality and support resolution speed.\n\n"
+                "| Reputation & Listening Pillar | Score /100 | Observable Social / Review Signal | Primary Trust Risk |\n"
+                "| --- | --- | --- | --- |\n"
+                "| 1. Fulfillment & Post-Purchase Sentiment | 66 | Commissioning timelines depend heavily on local installers | Third-party installer delays blamed on the brand |\n"
+                "| 2. Clinical & Product Trust Authority | 74 | Strong reputation for microinverter reliability and monitoring UX | Hardware/RMA or firmware hiccups creating vocal threads |\n"
+                "| 3. Review Ecosystem Parity | 65 | High app/product affinity vs. mixed local installer reviews | Uneven public review sentiment across regions |\n"
+                "| 4. Community Advocacy & Earned Momentum | 69 | Active solar owner communities sharing system performance | Unanswered troubleshooting threads lingering in public forums |\n\n"
+                "| Polarity | Platform & Context | Representative Customer Feedback | Core Theme |\n"
+                "| --- | --- | --- | --- |\n"
+                "| Positive | Solar Owner Forums | Per-panel monitoring makes spotting any issue effortless and reliable. | App & Telemetry Value |\n"
+                "| Positive | Homeowner Reviews | System has run steadily with clear visibility into daily generation. | Hardware Reliability |\n"
+                "| Positive | Community Threads | Having battery backup kept essentials running smoothly during an outage. | Backup Peace of Mind |\n"
+                "| Negative | Installer / Review Threads | Waiting weeks for local installer follow-up after initial inquiry. | Installer Speed-to-Lead |\n"
+                "| Negative | Support / Forum Threads | Support ticket took multiple back-and-forths to resolve commissioning check. | Support Resolution SLA |\n"
+                "| Negative | Regional Discussions | Confusing explanation of net-metering rules during sales pitch. | Expectation Clarity |\n\n"
+                "---DEEP_DIVE---\n"
+                "### Rapid Triage & Reputation Execution Plan\n"
+                "- **[Installer SLA] Problem -> Fix:** Slow partner follow-up hurts brand perception -> Audit lead-routing SLAs and re-route stalled inquiries fast.\n"
+                "- **[Forum Triage] Problem -> Fix:** Unresolved technical threads shape buyer research -> Assign dedicated technical community specialists with clear escalation paths.\n"
+                "- **[Expectation Setting] Problem -> Fix:** Permitting/utility delays surprise buyers -> Publish clear milestone timelines from design to permission-to-operate.\n"
+                "- **[Advocacy Loop] Problem -> Fix:** Happy owners rarely post structured reviews -> Prompt satisfied post-commissioning owners to share verified stories.\n\n"
+                "### Social Listening & Escalation SLA Matrix\n"
+                "| Listening Cluster & Channels | Trigger Signal | Severity & SLA | Owner & Resolution Play |\n"
+                "| --- | --- | --- | --- |\n"
+                "| Outage / System Fault Mentions | Repeated failure or safety/outage claims | High (<2h triage) | Technical Support + Field Ops root-cause check |\n"
+                "| Installer Delay Complaints | Stalled install or slow callback threads | Medium (<24h response) | Partner Ops + CX escalates with partner & customer |\n"
+                "| App & Monitoring Questions | Setup, login, or reporting confusion | Low-Med (<12h response) | Digital Care shares guided help flow & resolves |\n"
+                "| Creator & Press Mentions | Reviews, comparisons, or policy commentary | Medium (<24h response) | Brand/Comms logs sentiment & offers technical briefing |\n\n"
+                "### Top 10 Influencers & YouTube Channels for Brand Collaboration\n"
+                "| Rank | Creator / Channel Name | Primary Platform | Category & Audience Fit | Recommended Collab Angle |\n"
+                "| --- | --- | --- | --- | --- |\n"
+                "| 1 | Undecided with Matt Ferrell | YouTube | Clean energy & home tech explainers | Deep dive on microinverters, storage & home resilience |\n"
+                "| 2 | Nate's Solar / Home Solar Channels | YouTube | DIY & homeowner solar system breakdowns | Real-world performance & monitoring walkthrough |\n"
+                "| 3 | Engineering / Grid Tech Creators | YouTube | Grid resilience & energy transition viewers | Explaining distributed energy & backup architecture |\n"
+                "| 4 | Smart Home & EV Lifestyle Creators | YouTube & Instagram | Homeowners pairing EVs with home energy | Whole-home solar + EV charging daily routine |\n"
+                "| 5 | Personal Finance & Homeownership Creators | YouTube & Instagram | Cost-conscious homeowners evaluating ROI | Breaking down long-term utility bill & payback math |\n"
+                "| 6 | Sustainable Living & Off-Grid Creators | YouTube | Eco-minded home upgraders | Practical home efficiency & backup readiness tour |\n"
+                "| 7 | Real Estate & Home Reno Creators | Instagram & YouTube | Renovating/building homeowners | Planning solar-ready roofs and smart panels early |\n"
+                "| 8 | Regional Climate & Energy Commentators | YouTube & LinkedIn | Policy & utility tariff watchers | Explaining how tariff shifts affect solar + storage value |\n"
+                "| 9 | Consumer Tech Reviewers | YouTube | Smart-device & energy-app reviewers | Hands-on review of energy monitoring UX & alerts |\n"
+                "| 10 | Local Homeowner Advocates | Instagram & YouTube | Regional community trust builders | Authentic neighborhood walkthrough post-installation |"
+            )
+        }
+
+    # Default: Supertails (validated showcase)
+    return {
+        "company": "Supertails",
+        "official_url": "https://supertails.com",
+        "is_showcase": True,
+        "kpis": {
+            "margin_lever": "Gate promos + split MOV + private-label mix (+220-300 bps)",
+            "funnel_leak": "Mobile web CVR trails app by ~2.5x + checkout fee/COD friction",
+            "reputation_risk": "Fake '1-ring' delivery attempts & slow refund/cancellation UX"
+        },
+        "tile_hooks": {
+            "seo": ("68", "Strong vet & pet-care authority, but category & AI answer visibility leaks to quick-commerce and marketplaces."),
+            "paid": ("61", "PMax brand overlap and low-AOV prospecting dilute return; margin-tiered bidding and checkout fixes unlock quick gains."),
+            "pricing": ("62", "Aggressive 3P discounting and flat Rs 699 shipping subsidize low-margin kibble; gating promos and subscriptions lifts margin."),
+            "creative": ("74", "Pair vet-curated skin/life-stage bundles and 4s visual hooks with verified brand logo guardrails."),
+            "social": ("65", "Fear Free vets and 30-min dark-store speed win trust, while 3PL delivery & refund friction drive vocal complaints.")
+        },
+        "brand_logo": {"ok": False, "bytes": None, "source": None, "from_cache": False},
+        "brand_intel": _sample_item(
+            "- **Visual Design Language:** Vibrant orange and deep navy accents, rounded cards, friendly sans-serif typography, and candid pet-parent photography.\n"
+            "- **Meta & Social Ad Patterns:** Dynamic SKU carousels, creator reels, situational hooks, and express delivery or discount badges.\n"
+            "- **Google Search & Shopping Messaging:** Pet store headlines, vet care access, fast delivery cues, and direct shop CTAs.\n"
+            "- **Core Audience & Trust Triggers:** Urban Indian pet parents anchored by certified vets, community scale, and verified reviews.\n\n"
+            "| Channel / Format | Current Baseline Pattern | Creative Fatigue / Gap | Next-Gen Hook Angle |\n"
+            "| --- | --- | --- | --- |\n"
+            "| Meta Feed & Carousels | Generic SKU/discount cards | Commodity lookalike fatigue vs. q-commerce | Vet-curated breed & life-stage bundles |\n"
+            "| Reels & Short Video | Standard pet/offer clips | Over-used discount framing over clinical trust | 4s split-screen vet check & care hook |\n"
+            "| Search & Shopping | Broad pet food & delivery terms | High CPC overlap with marketplaces | Bundle + free vet consult value hooks |",
+            "Gemini Search + URL Context"
+        ),
+        "e1": _sample_item(
+            "| Search Pillar | Score /100 | Observable Diagnostic Signal | Primary Gap |\n"
+            "| --- | --- | --- | --- |\n"
+            "| 1. Technical & Programmatic SEO | 69 | Broad catalog and vet-content footprint on storefront | Faceted filter crawl bloat & out-of-stock SKU indexation |\n"
+            "| 2. AEO | 67 | Strong pet health/care topics; structured Q&A opportunities | Concise answer blocks for breed, diet & symptom queries |\n"
+            "| 3. GEO | 65 | Recognizable Indian pet-care brand; mixed LLM recommendation share | Comparison & authority assets for AI shopping/vet prompts |\n"
+            "| 4. Entity & Local Schema | 70 | Clinic presence and vet care positioning across key cities | Unified Organization, Vet/Clinic, and Product JSON-LD |\n"
+            "| 5. Off-Site Consensus & Digital PR | 66 | Active Reddit pet communities and review profiles | Balancing delivery complaints with verified vet/care proof |\n\n"
+            "- Prune low-value faceted URLs and handle out-of-stock SKUs cleanly.\n"
+            "- Add structured vet-backed Q&A blocks to win AI Overviews and featured snippets.\n"
+            "- Build breed- and life-stage nutrition guides that LLMs cite reliably.\n"
+            "- Tighten local clinic schema and GBP consistency across active cities.\n"
+            "---DEEP_DIVE---\n"
+            "| High-Intent Buyer Prompt | Current AI Winner | Supertails Vulnerability | Asset Needed to Win |\n"
+            "| --- | --- | --- | --- |\n"
+            "| Best vet-recommended dog food in India | Review blogs & Reddit | Generic listicles outrank brand guides | Vet-authored ingredient & life-stage matrix |\n"
+            "| Online vet consultation India for pet skin issue | Telehealth & forums | Symptom-to-consult path not always surfaced first | Structured symptom-triage & vet-consult guide |\n"
+            "| Fast pet food delivery near me | Quick-commerce apps | Perceived slower on instant micro-baskets | City-level delivery + care bundle landing pages |\n"
+            "| Best puppy/kitten starter essentials | Marketplaces & blogs | Fragmented category discovery | Complete life-stage checklist & bundle hub |\n\n"
+            "### Technical, Entity & Off-Site Execution Plan\n"
+            "- **[SEO] Problem -> Fix:** Parameter/filter combinations dilute crawl budget -> Canonicalize and noindex low-utility sort/filter permutations.\n"
+            "- **[AEO] Problem -> Fix:** Long articles delay direct answers -> Add crisp 40-50 word summary answers at top of high-intent guides.\n"
+            "- **[GEO] Problem -> Fix:** LLMs rely on Reddit/blogs for product picks -> Publish transparent nutrition comparisons and clinical FAQs.\n"
+            "- **[Schema] Problem -> Fix:** Partial markup across product and clinic templates -> Enforce valid Product, Offer, MedicalClinic, and FAQ schema.\n"
+            "- **[Off-Site] Problem -> Fix:** Delivery threads skew public sentiment -> Pair responsive CX with verified vet-care and customer stories."
+        ),
+        "e_paid": _sample_item(
+            "| Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal | Primary Leakage |\n"
+            "| --- | --- | --- | --- |\n"
+            "| 1. Non-Brand Search & PMax Efficiency | 60 | PMax and Search capture both brand and category demand | Brand cannibalization & low-margin staple bidding pressure |\n"
+            "| 2. Paid Social Acquisition & Creative Fatigue | 62 | Active Meta prospecting and retention/offer ads | Low-AOV trial orders & overlapping retargeting cohorts |\n"
+            "| 3. Landing Page & Product-to-Cart CRO | 59 | Mobile web and app flows serve distinct buyer journeys | Mobile web CVR lag vs. app & missing unit-price cues |\n"
+            "| 4. Checkout, Booking & Post-Click Friction | 63 | Express checkout plus platform/COD fee mechanics | Fee/COD friction & delivery SLA uncertainty at checkout |\n\n"
+            "- Exclude brand terms from non-brand PMax and tier by margin.\n"
+            "- Suppress recent repeat buyers from aggressive acquisition retargeting.\n"
+            "- Surface clear price-per-kg/unit cues and guided breed/size selectors.\n"
+            "- Simplify checkout fees, COD messaging, and delivery expectations.\n"
+            "---DEEP_DIVE---\n"
+            "### Paid Architecture & Funnel Fixes\n"
+            "- **[PMax] Problem -> Fix:** Unsegmented PMax blends brand and high/low-margin SKUs -> Separate brand exclusions and segment campaigns by margin tier.\n"
+            "- **[Paid Social] Problem -> Fix:** Retargeting hits recent buyers and low-margin trials -> Exclude active repeaters and optimize toward higher-LTV baskets.\n"
+            "- **[PDP CRO] Problem -> Fix:** Pack-size/unit math slows mobile add-to-cart -> Show per-kg/unit pricing clearly with 1-tap pack/bundle selection.\n"
+            "- **[Checkout] Problem -> Fix:** Extra fees and COD drop-offs stall completion -> Test cleaner fee framing, prepaid nudges, and clear ETA windows.\n\n"
+            "### CRO & Paid Experiment Backlog\n"
+            "| Test Hypothesis | Primary Metric | Guardrail Metric | Expected Impact |\n"
+            "| --- | --- | --- | --- |\n"
+            "| Split PMax by margin tier with brand exclusions | Contribution Margin ROAS | New-to-Brand Share | +15-22% margin-adjusted return |\n"
+            "| Exclude recent repeaters from Meta retargeting | Prospecting / Blended ROAS | Paid Social CAC | -12-18% wasted retargeting spend |\n"
+            "| Add unit-price badges & guided bundle selector on PDP | Mobile Add-to-Cart & CVR | Page Load / LCP | +12-20% mobile conversion lift |\n"
+            "| Streamline checkout fee & COD/prepaid prompt | Checkout-to-Paid CVR | Gross Margin & RTO % | +5-9% checkout completion lift |"
+        ),
+        "e2": _sample_item(
+            "**Current Pricing Strategy:** Supertails combines competitive marketplace-aligned pricing on staple pet foods with free-shipping thresholds, checkout/COD fee mechanics, and growing private-label and vet-service monetization.\n\n"
+            "| Pricing & Economics Pillar | Score /100 | Observable Pricing Signal | Margin / LTV Leakage |\n"
+            "| --- | --- | --- | --- |\n"
+            "| 1. Core SKU & Marketplace Price Positioning | 63 | Competitive discounting on third-party staples vs. q-commerce | Margin compression on commodity food SKUs |\n"
+            "| 2. Shipping, Fee & Basket Threshold Architecture | 59 | Free-shipping MOV paired with platform/COD surcharges | Heavy/bulky freight subsidy & small-basket fee friction |\n"
+            "| 3. Subscription & Repeat-Cohort Monetization | 61 | Repeat replenishment potential across food & consumables | Episodic one-off buying instead of locked-in recurring cadence |\n"
+            "| 4. Private-Label & High-Margin Service Mix | 65 | Owned brands and vet consultations carry higher margin potential | Owned-brand & service attach still small share of total mix |\n\n"
+            "- Gate steep promo discounts behind private-label or higher-AOV baskets.\n"
+            "- Align shipping thresholds with parcel weight and dark-store zones.\n"
+            "- Differentiate subscription savings across staples vs. owned brands.\n"
+            "- Convert vet consultations smoothly into high-margin care/nutrition carts.\n"
+            "---DEEP_DIVE---\n"
+            "### Tier Optimization & Margin Execution Plan\n"
+            "- **[Promo Gating] Problem -> Fix:** Broad discounts erode margin on commodity staples -> Gate top promo tiers behind owned-brand or higher basket thresholds.\n"
+            "- **[Shipping/Fees] Problem -> Fix:** Flat thresholds strain heavy bags and small orders -> Calibrate MOV by weight/zone and keep fee rules transparent.\n"
+            "- **[Subscriptions] Problem -> Fix:** Flat auto-ship discounts give away margin on 3P items -> Tier repeat savings higher on owned brands and bundles.\n"
+            "- **[Vet-to-Cart] Problem -> Fix:** Vet consults and commerce carts operate too separately -> Streamline post-consult care/nutrition basket recommendations.\n\n"
+            "### Unit Economics & Pricing Impact Matrix\n"
+            "| Pricing Lever | Target Cohort | Mechanism | Margin / LTV Lift | Volume / Churn Guardrail |\n"
+            "| --- | --- | --- | --- | --- |\n"
+            "| Promo & Basket Gating | Deal-seeking staple buyers | Require owned-brand mix or higher AOV for top promos | +200-300 bps blended GM | Keep welcome offer for first-time trial |\n"
+            "| Weight/Zone Shipping MOV | Heavy-bag & small-cart buyers | Dynamic threshold & zone-aware fulfillment rules | -120-160 bps freight drag | Offer multi-pack value to lift AOV cleanly |\n"
+            "| Tiered Auto-Ship | Repeat food/treat buyers | Higher recurring perks on owned brands & bundles | +20-30% repeat order LTV | Allow easy pause/skip to prevent churn |\n"
+            "| Consult-to-Care Bundle | Vet consultation users | Post-consult tailored care/supplement cart flow | +15-22% consult-to-order rate | Keep clinical advice unbiased and trustworthy |"
+        ),
+        "e3": _sample_item(
+            "1. **Google Search RSA Pack**\n"
+            "- Headline 1: Vet-Curated Pet Care & Food\n"
+            "- Headline 2: Fast Delivery & Vet Support\n"
+            "- Headline 3: Trusted By Indian Pet Parents\n"
+            "- Description 1: Shop authentic pet food, treats, and vet-backed essentials with fast doorstep delivery.\n"
+            "- Description 2: Get expert vet guidance and easy repeat orders for happy, healthy pets every day.\n\n"
+            "2. **Meta Feed Ad**\n"
+            "- Primary Text: Upgrade daily pet routines with vet-curated nutrition and care bundles—built for busy pet parents.\n"
+            "- Headline: Vet-Curated Care Bundles\n"
+            "- CTA: Shop Now\n\n"
+            "3. **4-Second Video Hook**\n"
+            "- Visual Scene: Pet parent checks ingredient label at home while pet waits eagerly; quick cut to vet-approved bundle.\n"
+            "- Voiceover/Text Overlay: Know what goes in their bowl. (6 words)\n"
+            "---DEEP_DIVE---\n"
+            "### Creative Rationale & Baseline Evolution\n"
+            "- **[Meta/Video] Problem -> Fix:** Generic discount banners blend into crowded feeds -> Lead with ingredient trust and life-stage relevance in 4 seconds.\n"
+            "- **[Search RSA] Problem -> Fix:** Repetitive promo copy misses high-intent care buyers -> Balance fast delivery with vet authority and trust proof.\n"
+            "- **[Visual Guardrail] Problem -> Fix:** AI wordmark/logo drift hurts brand polish -> Lock official brand logo placement and cap overlay badges.\n\n"
+            "### Creative A/B Testing Matrix\n"
+            "| Ad Variant | Hook / Angle | Target Persona | Primary KPI |\n"
+            "| --- | --- | --- | --- |\n"
+            "| Variant A (Vet Trust) | Vet-curated nutrition & care | Health-focused pet parents | First-Order Contribution ROAS |\n"
+            "| Variant B (Speed/Convenience) | Rapid restock when running low | Busy urban apartment owners | Mobile Add-to-Cart & CVR |\n"
+            "| Variant C (Life-Stage Kit) | Puppy/kitten/senior starter bundle | New & transitioning pet parents | Average Order Value (AOV) |\n"
+            "| Variant D (UGC Story) | Real pet parent & vet tip reel | Community/social scrollers | Thumbstop Rate & CTR |"
+        ),
+        "e4": _sample_item(
+            "**Current Brand Sentiment Archetype:** Supertails earns strong affection for Fear Free vet care and fast local convenience, while delivery exceptions, cancellation/refund friction, and review gaps drive negative sentiment.\n\n"
+            "| Reputation & Listening Pillar | Score /100 | Observable Social / Review Signal | Primary Trust Risk |\n"
+            "| --- | --- | --- | --- |\n"
+            "| 1. Fulfillment & Post-Purchase Sentiment | 58 | Complaints around delayed shipments, missed delivery attempts & cancellations | Courier/SLA failures eroding repeat trust |\n"
+            "| 2. Clinical & Product Trust Authority | 74 | Positive feedback on Fear Free vets and authentic product sourcing | Isolated service/escalation disputes hurting trust |\n"
+            "| 3. Review Ecosystem Parity | 62 | Strong site claims vs. mixed public review/forum threads | Rating/sentiment gap across external platforms |\n"
+            "| 4. Community Advocacy & Earned Momentum | 66 | Loyal pet-parent community and growth milestones | Unresolved public threads amplifying negative buzz |\n\n"
+            "| Polarity | Platform & Context | Representative Customer Feedback | Core Theme |\n"
+            "| --- | --- | --- | --- |\n"
+            "| Positive | Local Clinic Reviews | Calm, gentle vet team took time explaining care without rushing. | Fear Free Vet Experience |\n"
+            "| Positive | Pet Parent Forums | Genuine branded food and quick arrival when local stock is available. | Product & Local Speed |\n"
+            "| Positive | Customer Stories | Helpful guidance when choosing diet/care options for a new pet. | Care Guidance Value |\n"
+            "| Negative | Community / Forum Threads | Marked attempted delivery without a real call or doorstep visit. | Fake Delivery Attempt |\n"
+            "| Negative | Review / App Feedback | Hard to cancel or get timely refund updates once an order stalls. | Cancellation & Refund UX |\n"
+            "| Negative | Support Escalations | Automated replies loop before reaching a human who can fix the order. | Support Escalation Gap |\n\n"
+            "---DEEP_DIVE---\n"
+            "### Rapid Triage & Reputation Execution Plan\n"
+            "- **[Logistics Triage] Problem -> Fix:** Fake delivery attempts and delays trigger angry posts -> Audit courier call/GPS logs and trigger fast replacement/SLA fixes.\n"
+            "- **[Self-Serve UX] Problem -> Fix:** Missing/unclear cancellation and slow refunds fuel escalations -> Add clear order cancellation/help flows and faster refund SLAs.\n"
+            "- **[Human Escalation] Problem -> Fix:** Bot loops frustrate urgent pet-care/order issues -> Route stalled orders and clinical escalations to live agents fast.\n"
+            "- **[Trust Amplification] Problem -> Fix:** Negative threads overshadow positive care wins -> Spotlight verified vet care and real customer stories consistently.\n\n"
+            "### Social Listening & Escalation SLA Matrix\n"
+            "| Listening Cluster & Channels | Trigger Signal | Severity & SLA | Owner & Resolution Play |\n"
+            "| --- | --- | --- | --- |\n"
+            "| Delivery Failure / Fake Attempt | 'Attempted delivery', 'no call', or overdue order | High (<1h triage) | Logistics & CX verify courier status and resolve |\n"
+            "| Clinical / Vet Escalation | Care complaint or clinic service dispute | High (<2h triage) | Clinical Quality / Clinic Lead reviews & follows up |\n"
+            "| Refund & Cancellation Friction | Refund delay or cancellation complaint | Medium (<12h response) | Billing/CX resolves ticket and updates status clearly |\n"
+            "| Creator & Community Buzz | Product reviews, Indie/adoption stories, mentions | Medium (<24h response) | Brand/Community team engages & logs insights |\n\n"
+            "### Top 10 Influencers & YouTube Channels for Brand Collaboration\n"
+            "| Rank | Creator / Channel Name | Primary Platform | Category & Audience Fit | Recommended Collab Angle |\n"
+            "| --- | --- | --- | --- | --- |\n"
+            "| 1 | Indian Pet Care & Dog Training YouTubers | YouTube | Indian dog parents seeking diet & training tips | Vet-backed nutrition myth-busting & feeding routine |\n"
+            "| 2 | Indie Dog & Rescue Creators | Instagram & YouTube | High-empathy Indian pet & indie adoption audience | Indie/rescue care & nutrition starter kit story |\n"
+            "| 3 | Veterinarian & Pet Health Educators | YouTube & Instagram | Credibility-first pet health & preventive care | Fear Free vet Q&A on skin, coat & digestion |\n"
+            "| 4 | Cat Parent & Feline Lifestyle Creators | Instagram & YouTube | Engaged urban cat owners | Cat nutrition, litter/hygiene & enrichment picks |\n"
+            "| 5 | Puppy Parenting & First-Time Owner Channels | YouTube | New pet parents buying starter bundles | First 90 days puppy checklist & vet prep guide |\n"
+            "| 6 | Pet Product & Unboxing Reviewers | YouTube Shorts & Reels | Comparison & value-conscious buyers | Honest breakdown of food, treats & grooming gear |\n"
+            "| 7 | Bengaluru / Metro Pet Community Creators | Instagram | High-density urban pet hubs | Local pet-friendly routines & fast care access |\n"
+            "| 8 | Pet Wellness, Grooming & Coat Care Creators | Instagram & YouTube | Skin/coat & seasonal care seekers | Coat & skin care routine across seasons |\n"
+            "| 9 | Multi-Pet Household Vloggers | YouTube | High-frequency repeat food & supply buyers | Managing multi-pet monthly replenishment easily |\n"
+            "| 10 | Pet Behavior & Enrichment Creators | Instagram & YouTube | Engaged millennial/Gen-Z pet parents | Enrichment + balanced treat/nutrition pairing |"
+        }
+    }
+
 
 # -----------------------------------------------------------------------------
 # HERO HEADER
@@ -239,23 +711,30 @@ st.markdown("""
 <div class="apple-eyebrow">Soumya Ranjan Nayak • AI Growth & Pricing Architecture</div>
 <h1 class="apple-hero-title">Executive Intelligence Suite.</h1>
 <p class="apple-hero-subtitle">
-    Specialized multi-agent diagnostics grounded in live Search + URL Context across SEO/AEO/GEO, Paid Acquisition & CRO, Pricing Economics, Brand Creative, and Reputation Triage.
+    Interactive multi-agent diagnostics across Organic Search (SEO/AEO/GEO), Paid Acquisition & CRO, Pricing Economics, Brand Creative, and Reputation Triage.
 </p>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# SIDEBAR CONFIGURATION
+# SIDEBAR CONFIGURATION (NO USER API KEYS OR USER FORCE-REFRESH)
 # -----------------------------------------------------------------------------
-st.sidebar.header("API Credentials")
-gemini_key = st.sidebar.text_input("Gemini API Key (Paid Tier)", type="password")
-claude_key = st.sidebar.text_input("Anthropic API Key (Optional)", type="password")
-
-st.sidebar.markdown("---")
 st.sidebar.header("Studio & Brand Guardrails")
 generate_images = st.sidebar.checkbox("Generate Brand Image & Hook Keyframes", value=True)
-uploaded_logo = st.sidebar.file_uploader("Optional Brand Logo Override (PNG/JPG)", type=["png", "jpg", "jpeg", "webp"])
-force_refresh = st.sidebar.checkbox("Force Refresh (Bypass 2-Day Cache)", value=False)
-st.sidebar.caption("Gemini Search + Live URL Context are active. Completed modules cache for 48 hours.")
+raw_logo_upload = st.sidebar.file_uploader(
+    "Brand Logo Override (Max 5 MB)",
+    type=["png", "jpg", "jpeg", "webp"],
+    help="Optional override if automated website logo extraction needs replacement. Max file size: 5 MB."
+)
+
+uploaded_logo = None
+if raw_logo_upload is not None:
+    if raw_logo_upload.size > MAX_LOGO_BYTES:
+        st.sidebar.error("Logo exceeds the 5 MB limit. Please upload a file under 5 MB.")
+    else:
+        uploaded_logo = raw_logo_upload
+
+st.sidebar.markdown("---")
+st.sidebar.caption("Powered by Gemini Search + Live URL Context with 48-hour intelligent caching.")
 
 # -----------------------------------------------------------------------------
 # CACHE HELPERS (PER-ELEMENT, 2-DAY TTL)
@@ -263,14 +742,17 @@ st.sidebar.caption("Gemini Search + Live URL Context are active. Completed modul
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.strip().lower()).strip("_") or "default"
 
+
 def _meta_path(company: str, element_key: str) -> str:
     return os.path.join(CACHE_DIR, f"{_slug(company)}__{_slug(element_key)}.json")
+
 
 def _asset_path(company: str, element_key: str, ext: str) -> str:
     return os.path.join(CACHE_DIR, f"{_slug(company)}__{_slug(element_key)}.{ext}")
 
+
 def load_cached_element(company: str, element_key: str, asset_ext: str | None = None):
-    if force_refresh:
+    if BACKEND_FORCE_REFRESH:
         return None
     meta_file = _meta_path(company, element_key)
     if not os.path.exists(meta_file):
@@ -291,6 +773,7 @@ def load_cached_element(company: str, element_key: str, asset_ext: str | None = 
     except Exception:
         return None
 
+
 def save_cached_element(company: str, element_key: str, payload: dict, raw_bytes: bytes | None = None, asset_ext: str | None = None):
     meta_file = _meta_path(company, element_key)
     record = dict(payload)
@@ -303,6 +786,7 @@ def save_cached_element(company: str, element_key: str, payload: dict, raw_bytes
     with open(meta_file, "w", encoding="utf-8") as f:
         json.dump(record, f)
 
+
 def format_age(saved_at: float) -> str:
     hours = max(0.0, (time.time() - saved_at) / 3600.0)
     if hours < 1:
@@ -314,9 +798,9 @@ def format_age(saved_at: float) -> str:
 # MODEL CALLERS (WITH GEMINI URL_CONTEXT + GOOGLE_SEARCH & CLAUDE WEB_SEARCH)
 # -----------------------------------------------------------------------------
 def call_gemini(prompt: str, use_search: bool = False, use_url_context: bool = False):
-    if not gemini_key:
-        raise ValueError("Gemini API key not provided.")
-    client = genai.Client(api_key=gemini_key)
+    if not GEMINI_KEY:
+        raise ValueError("Backend GEMINI_API_KEY is not configured.")
+    client = genai.Client(api_key=GEMINI_KEY)
     tools = []
     if use_search:
         tools.append({"google_search": {}})
@@ -337,7 +821,6 @@ def call_gemini(prompt: str, use_search: bool = False, use_url_context: bool = F
             mode_tag = "Search + URL Context" if (use_search and use_url_context) else ("Search" if use_search else "Direct")
             return res.text, f"Gemini ({model_id} • {mode_tag})"
         except Exception as e:
-            # Fallback without url_context if a specific URL is blocked or unsupported
             if use_url_context:
                 try:
                     fallback_tools = [{"google_search": {}}] if use_search else None
@@ -354,10 +837,11 @@ def call_gemini(prompt: str, use_search: bool = False, use_url_context: bool = F
                 last_err = e
     raise last_err
 
+
 def call_claude(prompt: str, use_search: bool = False):
-    if not claude_key:
-        raise ValueError("Claude API key not provided.")
-    client = anthropic.Anthropic(api_key=claude_key)
+    if not CLAUDE_KEY:
+        raise ValueError("Backend ANTHROPIC_API_KEY is not configured.")
+    client = anthropic.Anthropic(api_key=CLAUDE_KEY)
     kwargs = {
         "model": "claude-sonnet-4-6",
         "max_tokens": 1800,
@@ -373,26 +857,27 @@ def call_claude(prompt: str, use_search: bool = False):
     mode_tag = "Web Search" if use_search else "Direct"
     return text, f"Claude (Sonnet 4.6 • {mode_tag})"
 
+
 def route_agent(prompt: str, preferred: str = "gemini", use_search: bool = False, use_url_context: bool = False):
     order = ["gemini", "claude"] if preferred == "gemini" else ["claude", "gemini"]
     errors = []
     for provider in order:
         try:
-            if provider == "gemini" and gemini_key:
+            if provider == "gemini" and GEMINI_KEY:
                 return call_gemini(prompt, use_search=use_search, use_url_context=use_url_context)
-            elif provider == "claude" and claude_key:
+            elif provider == "claude" and CLAUDE_KEY:
                 return call_claude(prompt, use_search=use_search)
         except Exception as e:
             errors.append(f"{provider.upper()}: {e}")
-    raise RuntimeError(" | ".join(errors) if errors else "No API key available.")
+    raise RuntimeError(" | ".join(errors) if errors else "No backend API key configured.")
+
 
 def get_or_resolve_official_url(company: str) -> str:
-    """Resolves and caches the brand's canonical homepage URL for URL Context & logo extraction."""
     cached = load_cached_element(company, "official_url_v1")
     if cached and cached.get("url"):
         return cached["url"]
     default_url = f"https://{_slug(company)}.com"
-    if not gemini_key:
+    if not GEMINI_KEY:
         return default_url
     try:
         domain_raw, _ = call_gemini(
@@ -405,6 +890,7 @@ def get_or_resolve_official_url(company: str) -> str:
         return resolved
     except Exception:
         return default_url
+
 
 def _download_valid_raster_image(url: str) -> bytes | None:
     try:
@@ -420,6 +906,8 @@ def _download_valid_raster_image(url: str) -> bytes | None:
             if "svg" in ctype or url.lower().split("?")[0].endswith(".svg"):
                 return None
             data = resp.read()
+        if len(data) > MAX_LOGO_BYTES:
+            return None
         img = Image.open(io.BytesIO(data)).convert("RGBA")
         w, h = img.size
         if w < 48 or h < 24:
@@ -430,11 +918,14 @@ def _download_valid_raster_image(url: str) -> bytes | None:
     except Exception:
         return None
 
+
 def get_or_fetch_brand_logo(company: str, base_url: str, manual_upload=None):
-    """Fetches official raster logo directly from the brand's website (cached 48h), or uses manual upload."""
     if manual_upload is not None:
         try:
-            img = Image.open(manual_upload).convert("RGBA")
+            raw_in = manual_upload.getvalue()
+            if len(raw_in) > MAX_LOGO_BYTES:
+                return {"ok": False, "bytes": None, "source": None, "from_cache": False}
+            img = Image.open(io.BytesIO(raw_in)).convert("RGBA")
             buf = io.BytesIO()
             img.save(buf, format="PNG")
             raw_png = buf.getvalue()
@@ -488,6 +979,7 @@ def get_or_fetch_brand_logo(company: str, base_url: str, manual_upload=None):
 
     return {"ok": False, "bytes": None, "source": None, "from_cache": False}
 
+
 def get_or_generate_text_element(company: str, element_key: str, prompt: str, preferred: str = "gemini", use_search: bool = False, use_url_context: bool = False):
     cached = load_cached_element(company, element_key)
     if cached:
@@ -520,8 +1012,8 @@ def get_or_generate_text_element(company: str, element_key: str, prompt: str, pr
             "error": str(e)
         }
 
+
 def get_or_generate_brand_intel(company: str, official_url: str):
-    """Apple-minimalist Brand Design Language & Creative Baseline Audit grounded in official URL + Search."""
     cached = load_cached_element(company, "brand_ad_intel_v3")
     if cached:
         return {
@@ -545,6 +1037,7 @@ def get_or_generate_brand_intel(company: str, official_url: str):
     """
     return get_or_generate_text_element(company, "brand_ad_intel_v3", prompt, preferred="gemini", use_search=True, use_url_context=True)
 
+
 def get_or_generate_image_element(company: str, element_key: str, prompt: str, aspect_ratio: str = "1:1", logo_bytes: bytes | None = None):
     cached = load_cached_element(company, element_key, asset_ext="png")
     if cached:
@@ -556,9 +1049,9 @@ def get_or_generate_image_element(company: str, element_key: str, prompt: str, a
             "error": None
         }
     try:
-        if not gemini_key:
-            raise ValueError("Gemini API key required for image generation.")
-        client = genai.Client(api_key=gemini_key)
+        if not GEMINI_KEY:
+            raise ValueError("Backend GEMINI_API_KEY required for image generation.")
+        client = genai.Client(api_key=GEMINI_KEY)
 
         if logo_bytes:
             logo_pil = Image.open(io.BytesIO(logo_bytes))
@@ -606,8 +1099,38 @@ def get_or_generate_image_element(company: str, element_key: str, prompt: str, a
             "error": str(e)
         }
 
+
+def extract_composite_score(markdown_text: str, fallback: int = 65) -> int:
+    scores = []
+    for line in (markdown_text or "").splitlines():
+        if line.strip().startswith("|") and not line.strip().startswith("| Search Pillar") and not line.strip().startswith("| Paid & Funnel") and not line.strip().startswith("| Pricing & Economics") and not line.strip().startswith("| Reputation & Listening"):
+            cols = [c.strip() for c in line.strip("|").split("|")]
+            if len(cols) >= 2:
+                m = re.match(r"^(\d{1,3})$", cols[1])
+                if m:
+                    val = int(m.group(1))
+                    if 0 <= val <= 100:
+                        scores.append(val)
+    if scores:
+        return round(sum(scores) / len(scores))
+    return fallback
+
+
+def score_badge_html(score_str: str) -> str:
+    try:
+        s = int(re.sub(r"[^\d]", "", str(score_str)) or "65")
+    except Exception:
+        s = 65
+    if s >= 75:
+        cls = "score-pill-good"
+    elif s >= 62:
+        cls = "score-pill-mid"
+    else:
+        cls = "score-pill-warn"
+    return f'<span class="{cls}">{s} / 100</span>'
+
 # -----------------------------------------------------------------------------
-# EXECUTIVE PDF BUILDER (6 SECTIONS + EMBEDDED AD MOCKUPS)
+# EXECUTIVE PDF BUILDER
 # -----------------------------------------------------------------------------
 def _clean_pdf_text(text: str) -> str:
     if not text:
@@ -623,6 +1146,7 @@ def _clean_pdf_text(text: str) -> str:
     text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
     text = re.sub(r"`(.*?)`", r"\1", text)
     return text.encode("latin-1", "ignore").decode("latin-1").strip()
+
 
 class ExecutivePDF(FPDF):
     def __init__(self, company_name: str):
@@ -720,6 +1244,7 @@ class ExecutivePDF(FPDF):
 
         flush_table()
 
+
 def build_executive_pdf(audit_data: dict) -> bytes:
     company = audit_data["company"]
     pdf = ExecutivePDF(company)
@@ -794,201 +1319,254 @@ def build_executive_pdf(audit_data: dict) -> bytes:
     return bytes(raw_out) if isinstance(raw_out, (bytes, bytearray)) else raw_out.encode("latin-1")
 
 # -----------------------------------------------------------------------------
-# UNIFIED SEARCH BAR & ACTION ROW
+# RUN LIVE AUDIT ORCHESTRATOR
 # -----------------------------------------------------------------------------
-col_input, col_btn = st.columns([3.2, 1.3], vertical_alignment="bottom")
+def run_live_audit(company: str):
+    with st.spinner(f"Orchestrating 5 specialized sub-agents for {company}..."):
+        official_url = get_or_resolve_official_url(company)
+        brand_logo = get_or_fetch_brand_logo(company, official_url, manual_upload=uploaded_logo)
+        brand_intel = get_or_generate_brand_intel(company, official_url)
+        brand_dna_text = brand_intel["content"] if brand_intel["ok"] else f"Authentic commercial brand aesthetic for {company}."
+
+        p1 = f"""
+        Act as Principal SEO, AEO (Answer Engine Optimization), and GEO (Generative Engine Optimization) Architect auditing {company} (inspecting live storefront URL: {official_url} alongside live search index signals).
+        STRICT FORMATTING:
+        - Start with a compact Markdown scorecard table with EXACT columns (use integer-only numbers like 68 in Score /100, never '68/100'):
+          | Search Pillar | Score /100 | Observable Diagnostic Signal | Primary Gap |
+          Rows MUST be:
+          1. Technical & Programmatic SEO
+          2. AEO
+          3. GEO
+          4. Entity & Local Schema
+          5. Off-Site Consensus & Digital PR
+        - Follow with EXACTLY 4 short, hard-hitting bullet points (max 16 words per bullet) on highest-ROI organic search levers.
+        - End with '---DEEP_DIVE---' followed by:
+          1. A compact 4-row **AI Prompt Visibility Matrix** table (| High-Intent Buyer Prompt | Current AI Winner | {company} Vulnerability | Asset Needed to Win |)
+          2. **Technical, Entity & Off-Site Execution Plan**: Output EXACTLY 5 scannable bullet points (max 25 words each) formatted strictly as `- **[Category] Problem -> Fix:** [Diagnosis] -> [Action]`.
+        """
+
+        p_paid = f"""
+        Act as VP of Performance Marketing & Conversion Rate Optimization (CRO) auditing {company} (inspecting live storefront UX/checkout signals at {official_url} and active ad signals).
+        STRICT FORMATTING:
+        - Start with a compact Markdown scorecard table with EXACT columns (use integer-only numbers like 61 in Score /100, never '61/100'):
+          | Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal | Primary Leakage |
+          Rows MUST be:
+          1. Non-Brand Search & PMax Efficiency
+          2. Paid Social Acquisition & Creative Fatigue
+          3. Landing Page & Product-to-Cart CRO
+          4. Checkout, Booking & Post-Click Friction
+        - Follow with EXACTLY 4 short, hard-hitting bullet points (max 16 words per bullet) on immediate ROAS and conversion lifts.
+        - End with '---DEEP_DIVE---' followed by:
+          1. **Paid Architecture & Funnel Fixes**: Output 4 scannable bullet points (max 25 words each) formatted strictly as `- **[Area] Problem -> Fix:** [Diagnosis] -> [Action]`.
+          2. A compact 4-row **CRO & Paid Experiment Backlog** table:
+             | Test Hypothesis | Primary Metric | Guardrail Metric | Expected Impact |
+        """
+
+        p2 = f"""
+        Act as VP of Pricing & Commercial Strategy auditing {company} (inspecting live pricing, shipping thresholds, fees, and product mix at {official_url} plus market search signals).
+        STRICT FORMATTING:
+        - Line 1 MUST be a bold 1-sentence executive summary of the brand's current pricing model, formatted strictly as:
+          **Current Pricing Strategy:** [1 concise sentence summarizing price positioning, shipping/fee thresholds, discounting posture, and core monetization model].
+        - Immediately follow with a compact Markdown scorecard table with EXACT columns (use integer-only numbers like 62 in Score /100, never '62/100'):
+          | Pricing & Economics Pillar | Score /100 | Observable Pricing Signal | Margin / LTV Leakage |
+          Rows MUST be:
+          1. Core SKU & Marketplace Price Positioning
+          2. Shipping, Fee & Basket Threshold Architecture
+          3. Subscription & Repeat-Cohort Monetization
+          4. Private-Label & High-Margin Service Mix
+        - Follow with EXACTLY 4 short, hard-hitting bullet points (max 16 words per bullet) on immediate gross margin and LTV expansion levers.
+        - End with '---DEEP_DIVE---' followed by:
+          1. **Tier Optimization & Margin Execution Plan**: Output 4 scannable bullet points (max 25 words each) formatted strictly as `- **[Lever] Problem -> Fix:** [Current margin/pricing leak] -> [Exact tier, threshold, or bundling mechanism]`.
+          2. A compact 4-row **Unit Economics & Pricing Impact Matrix** table:
+             | Pricing Lever | Target Cohort | Mechanism | Margin / LTV Lift | Volume / Churn Guardrail |
+        """
+
+        p3 = f"""
+        Act as VP of Performance Creative & Brand Strategy for {company}.
+        Current Brand & Ad Baseline:
+        {brand_dna_text}
+
+        STRICT FORMATTING (DO NOT USE ANY EMOJIS):
+        - Output compact, high-converting ad concepts in 3 short blocks:
+          1. **Google Search RSA Pack** (3 Headlines <=30 chars each + 2 Descriptions <=90 chars each)
+          2. **Meta Feed Ad** (Primary Text <=110 chars + Headline <=35 chars + CTA)
+          3. **4-Second Video Hook** (Visual Scene + Voiceover/Text Overlay <=12 words)
+        - End with '---DEEP_DIVE---' followed by:
+          1. **Creative Rationale & Baseline Evolution**: Output 3 scannable bullet points (max 25 words each) formatted strictly as `- **[Channel] Problem -> Fix:** [Current creative fatigue/gap] -> [How new hook improves CTR/CVR]`.
+          2. A compact 4-row **Creative A/B Testing Matrix** table:
+             | Ad Variant | Hook / Angle | Target Persona | Primary KPI |
+        """
+
+        p4 = f"""
+        Act as VP of Brand Reputation, Social Listening & Creator Partnerships auditing {company} ({official_url}) using live web, Reddit, review aggregator, and YouTube search signals.
+        STRICT FORMATTING (DO NOT USE ANY EMOJIS):
+        - Line 1 MUST be a bold 1-sentence executive summary of the brand's current public reputation posture, formatted strictly as:
+          **Current Brand Sentiment Archetype:** [1 concise sentence contrasting core brand strengths/advocacy against primary public friction points].
+        - Immediately follow with a compact Markdown scorecard table with EXACT columns (use integer-only numbers like 64 in Score /100, never '64/100'):
+          | Reputation & Listening Pillar | Score /100 | Observable Social / Review Signal | Primary Trust Risk |
+          Rows MUST be:
+          1. Fulfillment & Post-Purchase Sentiment
+          2. Clinical & Product Trust Authority
+          3. Review Ecosystem Parity
+          4. Community Advocacy & Earned Momentum
+        - Immediately follow with **Voice of the Customer — Recent Platform Signals** formatted as a compact 6-row table:
+          | Polarity | Platform & Context | Representative Customer Feedback | Core Theme |
+        - End with '---DEEP_DIVE---' followed by:
+          1. **Rapid Triage & Reputation Execution Plan**: Output 4 scannable bullet points (max 25 words each) formatted strictly as `- **[Area] Problem -> Fix:** [Current sentiment/ops trigger] -> [Exact SLA, product, or comms action]`.
+          2. **Social Listening & Escalation SLA Matrix**: A compact 4-row table:
+             | Listening Cluster & Channels | Trigger Signal | Severity & SLA | Owner & Resolution Play |
+          3. **Top 10 Influencers & YouTube Channels for Brand Collaboration**: A 10-row outreach table:
+             | Rank | Creator / Channel Name | Primary Platform | Category & Audience Fit | Recommended Collab Angle |
+        """
+
+        e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v3", p1, preferred="gemini", use_search=True, use_url_context=True)
+        e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v2", p_paid, preferred="gemini", use_search=True, use_url_context=True)
+        e2 = get_or_generate_text_element(company, "agent2_pricing_v2", p2, preferred="gemini", use_search=True, use_url_context=True)
+        e3 = get_or_generate_text_element(company, "agent3_creative_v2", p3, preferred="gemini")
+        e4 = get_or_generate_text_element(company, "agent4_social_v2", p4, preferred="gemini", use_search=True, use_url_context=True)
+
+        img_meta = None
+        img_banner = None
+        img_hook_frame = None
+        if generate_images:
+            logo_bytes = brand_logo["bytes"] if brand_logo["ok"] else None
+            meta_prompt = (
+                f"Create a sleek, modern Instagram/Meta feed advertisement creative (1:1) for {company}. "
+                f"Strictly align with this brand design language: {brand_dna_text} "
+                f"Apple-inspired clean commercial composition, authentic natural photography, MAXIMUM 2 clean UI elements (1 crisp offer pill badge + 1 primary CTA button), generous breathing room, zero cluttered text."
+            )
+            banner_prompt = (
+                f"Create a sleek widescreen digital display banner ad creative (16:9) for {company}. "
+                f"Strictly align with this brand design language: {brand_dna_text} "
+                f"Hero product/service showcase on clean off-white/warm brand backdrop, MAXIMUM 2 clean UI elements (1 bold headline + 1 CTA button), zero clutter."
+            )
+            hook_frame_prompt = (
+                f"Create the opening 0-second keyframe visual for a 4-second commercial video ad hook (16:9) for {company}. "
+                f"Strictly align with this brand design language: {brand_dna_text} "
+                f"High-attention candid hero moment with clean composition, MAXIMUM 2 clean UI overlays (1 short 4-word hook headline + 1 subtle CTA badge), zero clutter."
+            )
+            img_meta = get_or_generate_image_element(company, "meta_ad_1x1_v3", meta_prompt, aspect_ratio="1:1", logo_bytes=logo_bytes)
+            img_banner = get_or_generate_image_element(company, "banner_ad_16x9_v3", banner_prompt, aspect_ratio="16:9", logo_bytes=logo_bytes)
+            img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9_v3", hook_frame_prompt, aspect_ratio="16:9", logo_bytes=logo_bytes)
+
+        s_seo = extract_composite_score(e1.get("content", ""), 68)
+        s_paid = extract_composite_score(e_paid.get("content", ""), 61)
+        s_pri = extract_composite_score(e2.get("content", ""), 62)
+        s_soc = extract_composite_score(e4.get("content", ""), 65)
+
+        return {
+            "company": company,
+            "official_url": official_url,
+            "is_showcase": False,
+            "kpis": {
+                "margin_lever": f"See {company} pricing & tier levers in Pricing tile",
+                "funnel_leak": f"See {company} acquisition & CRO leaks in Paid tile",
+                "reputation_risk": f"See {company} sentiment & SLA risks in Social tile"
+            },
+            "tile_hooks": {
+                "seo": (str(s_seo), f"Organic search, AI answer visibility, and schema audit for {company}."),
+                "paid": (str(s_paid), f"Paid search/social efficiency, landing page UX, and checkout diagnostics for {company}."),
+                "pricing": (str(s_pri), f"Price positioning, shipping/fee thresholds, and margin expansion levers for {company}."),
+                "creative": ("72", f"Brand-aligned ad copy, RSA pack, and visual creatives for {company}."),
+                "social": (str(s_soc), f"Customer sentiment signals, escalation SLAs, and creator outreach for {company}.")
+            },
+            "brand_logo": brand_logo,
+            "brand_intel": brand_intel,
+            "e1": e1,
+            "e_paid": e_paid,
+            "e2": e2,
+            "e3": e3,
+            "e4": e4,
+            "img_meta": img_meta,
+            "img_banner": img_banner,
+            "img_hook_frame": img_hook_frame,
+        }
+
+
+# -----------------------------------------------------------------------------
+# SEARCH BAR + SAMPLE SHOWCASE LAUNCHERS
+# -----------------------------------------------------------------------------
+if "active_module" not in st.session_state:
+    st.session_state["active_module"] = "pricing"
+
+if "last_audit" not in st.session_state:
+    st.session_state["last_audit"] = build_sample_showcase("supertails")
+
+col_input, col_btn, col_s1, col_s2 = st.columns([2.6, 1.35, 1.15, 1.25], vertical_alignment="bottom")
 with col_input:
     target_company = st.text_input(
         "Target Company",
-        placeholder="Enter a brand (e.g., Supertails, Enphase Energy, Ather Energy)",
+        placeholder="Enter any brand (e.g., Ather Energy, Zepto, Zerodha)",
         label_visibility="collapsed"
     )
 with col_btn:
-    run_clicked = st.button("Run Intelligence Suite", use_container_width=True)
+    run_clicked = st.button("Run Live Audit", use_container_width=True)
+with col_s1:
+    if st.button("Demo: Supertails", use_container_width=True):
+        st.session_state["last_audit"] = build_sample_showcase("supertails")
+        st.rerun()
+with col_s2:
+    if st.button("Demo: Enphase", use_container_width=True):
+        st.session_state["last_audit"] = build_sample_showcase("enphase")
+        st.rerun()
 
 if run_clicked:
-    if not gemini_key and not claude_key:
-        st.error("Please enter at least one API key (Gemini or Claude) in the sidebar.")
+    if not GEMINI_KEY and not CLAUDE_KEY:
+        st.error("Backend API key is not configured yet. Add GEMINI_API_KEY in Streamlit Secrets to run live audits, or use the Demo buttons.")
     elif not target_company.strip():
         st.warning("Please enter a target company name.")
     else:
-        company = target_company.strip()
-        with st.spinner(f"Orchestrating 5 specialized sub-agents with Live URL Context & Search for {company}..."):
-            official_url = get_or_resolve_official_url(company)
-            brand_logo = get_or_fetch_brand_logo(company, official_url, manual_upload=uploaded_logo)
-            brand_intel = get_or_generate_brand_intel(company, official_url)
-            brand_dna_text = brand_intel["content"] if brand_intel["ok"] else f"Authentic commercial brand aesthetic for {company}."
-
-            # Agent 1: Dedicated SEO, AEO & GEO Audit (Grounded with Live URL Context + Search)
-            p1 = f"""
-            Act as Principal SEO, AEO (Answer Engine Optimization), and GEO (Generative Engine Optimization) Architect auditing {company} (inspecting live storefront URL: {official_url} alongside live search index signals).
-            STRICT FORMATTING:
-            - Start with a compact Markdown scorecard table with EXACT columns (use integer-only numbers like 68 in Score /100, never '68/100'):
-              | Search Pillar | Score /100 | Observable Diagnostic Signal | Primary Gap |
-              Rows MUST be:
-              1. Technical & Programmatic SEO (crawl architecture, faceted filters, out-of-stock/SKU indexation)
-              2. AEO (AI Overviews, Featured Snippets, high-intent Q&A ownership)
-              3. GEO (LLM recommendation share-of-voice & citation sentiment across Gemini/ChatGPT/Perplexity)
-              4. Entity & Local Schema (Organization, Product, Medical/Service schema & local footprint)
-              5. Off-Site Consensus & Digital PR (Reddit, Trustpilot, authoritative third-party mentions)
-            - Follow with EXACTLY 4 short, hard-hitting bullet points (max 16 words per bullet) on highest-ROI organic search levers.
-            - End with '---DEEP_DIVE---' followed by:
-              1. A compact 4-row **AI Prompt Visibility Matrix** table (| High-Intent Buyer Prompt | Current AI Winner | {company} Vulnerability | Asset Needed to Win |)
-              2. **Technical, Entity & Off-Site Execution Plan**: Output EXACTLY 5 scannable bullet points (max 25 words each) formatted strictly as:
-                 - **[Category] Problem -> Fix:** [Concise problem diagnosis] -> [Exact technical/schema/consensus implementation].
-            """
-
-            # Agent 2: Dedicated Paid Search, Shopping & Funnel CRO Audit (Grounded with Live URL Context + Search)
-            p_paid = f"""
-            Act as VP of Performance Marketing & Conversion Rate Optimization (CRO) auditing {company} (inspecting live storefront UX/checkout signals at {official_url} and active ad signals).
-            STRICT FORMATTING:
-            - Start with a compact Markdown scorecard table with EXACT columns (use integer-only numbers like 61 in Score /100, never '61/100'):
-              | Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal | Primary Leakage |
-              Rows MUST be:
-              1. Non-Brand Search & PMax Efficiency (brand exclusion, margin-tiered bidding, marketplace/q-comm pressure)
-              2. Paid Social Acquisition & Creative Fatigue (Meta prospecting vs. retargeting, CAPI LTV optimization)
-              3. Landing Page & Product-to-Cart CRO (mobile UX, unit-price cues, guided SKU discovery)
-              4. Checkout, Booking & Post-Click Friction (1-tap payment, COD/RTO risk, SLA clarity)
-            - Follow with EXACTLY 4 short, hard-hitting bullet points (max 16 words per bullet) on immediate ROAS and conversion lifts.
-            - End with '---DEEP_DIVE---' followed by:
-              1. **Paid Architecture & Funnel Fixes**: Output 4 scannable bullet points (max 25 words each) formatted strictly as `- **[Area] Problem -> Fix:** [Diagnosis] -> [Action]`, explicitly covering PMax brand-exclusion/margin buckets, Meta LTV bidding, PDP merchandising, and checkout friction.
-              2. A compact 4-row **CRO & Paid Experiment Backlog** table:
-                 | Test Hypothesis | Primary Metric | Guardrail Metric | Expected Impact |
-            """
-
-            # Agent 3: Pricing & Unit Economics (Grounded with Live URL Context + Search)
-            p2 = f"""
-            Act as VP of Pricing & Commercial Strategy auditing {company} (inspecting live pricing, shipping thresholds, fees, and product mix at {official_url} plus market search signals).
-            STRICT FORMATTING:
-            - Line 1 MUST be a bold 1-sentence executive summary of the brand's current pricing model, formatted strictly as:
-              **Current Pricing Strategy:** [1 concise sentence summarizing their price positioning, shipping/fee thresholds, discounting posture, and core monetization model].
-            - Immediately follow with a compact Markdown scorecard table with EXACT columns (use integer-only numbers like 62 in Score /100, never '62/100'):
-              | Pricing & Economics Pillar | Score /100 | Observable Pricing Signal | Margin / LTV Leakage |
-              Rows MUST be:
-              1. Core SKU & Marketplace Price Positioning (3P price parity vs. Amazon/quick-commerce, anchor pricing)
-              2. Shipping, Fee & Basket Threshold Architecture (free-shipping MOV, COD/platform surcharges, volumetric freight)
-              3. Subscription & Repeat-Cohort Monetization (auto-ship depth, cadence flexibility, retention incentives)
-              4. Private-Label & High-Margin Service Mix (owned-brand attach rate, clinical/service monetization loops)
-            - Follow with EXACTLY 4 short, hard-hitting bullet points (max 16 words per bullet) on immediate gross margin and LTV expansion levers.
-            - End with '---DEEP_DIVE---' followed by:
-              1. **Tier Optimization & Margin Execution Plan**: Output 4 scannable bullet points (max 25 words each) formatted strictly as `- **[Lever] Problem -> Fix:** [Current margin/pricing leak] -> [Exact tier, threshold, or bundling mechanism]`.
-              2. A compact 4-row **Unit Economics & Pricing Impact Matrix** table:
-                 | Pricing Lever | Target Cohort | Mechanism | Margin / LTV Lift | Volume / Churn Guardrail |
-            """
-
-            # Agent 4: Ad Creative Studio
-            p3 = f"""
-            Act as VP of Performance Creative & Brand Strategy for {company}.
-            Current Brand & Ad Baseline:
-            {brand_dna_text}
-
-            STRICT FORMATTING (DO NOT USE ANY EMOJIS):
-            - Output compact, high-converting ad concepts engineered to outperform their current baseline in 3 short blocks:
-              1. **Google Search RSA Pack** (strictly enforce character limits: 3 Headlines <=30 chars each + 2 Descriptions <=90 chars each)
-              2. **Meta Feed Ad** (Primary Text <=110 chars + Headline <=35 chars + CTA)
-              3. **4-Second Video Hook** (Visual Scene + Voiceover/Text Overlay <=12 words)
-            - End with '---DEEP_DIVE---' followed by:
-              1. **Creative Rationale & Baseline Evolution**: Output 3 scannable bullet points (max 25 words each) formatted strictly as `- **[Channel] Problem -> Fix:** [Current creative fatigue/gap] -> [How new hook improves CTR/CVR]`.
-              2. A compact 4-row **Creative A/B Testing Matrix** table:
-                 | Ad Variant | Hook / Angle | Target Persona | Primary KPI |
-            """
-
-            # Agent 5: Social, Brand Triage & Top 10 Creator Outreach
-            p4 = f"""
-            Act as VP of Brand Reputation, Social Listening & Creator Partnerships auditing {company} ({official_url}) using live web, Reddit, Trustpilot, review aggregator, and YouTube search signals.
-            STRICT FORMATTING (DO NOT USE ANY EMOJIS):
-            - Line 1 MUST be a bold 1-sentence executive summary of the brand's current public reputation posture, formatted strictly as:
-              **Current Brand Sentiment Archetype:** [1 concise sentence contrasting their core brand strengths/advocacy against their primary public friction points].
-            - Immediately follow with a compact Markdown scorecard table with EXACT columns (use integer-only numbers like 64 in Score /100, never '64/100'):
-              | Reputation & Listening Pillar | Score /100 | Observable Social / Review Signal | Primary Trust Risk |
-              Rows MUST be:
-              1. Fulfillment & Post-Purchase Sentiment (delivery SLAs, cancellation UX, 3PL courier complaints)
-              2. Clinical & Product Trust Authority (service quality ratings, authenticity perception, medical/product escalations)
-              3. Review Ecosystem Parity (on-site verified reviews vs. Trustpilot, Google Reviews, Reddit, and App Stores)
-              4. Community Advocacy & Earned Momentum (organic user UGC, PR/funding milestones, creator sentiment)
-            - Immediately follow with **Voice of the Customer — Recent Platform Signals** formatted as a compact 6-row table:
-              | Polarity | Platform & Context | Representative Customer Feedback | Core Theme |
-              (Include 3 recent Positive examples and 3 recent Negative examples grounded in real Reddit, Trustpilot, Google Maps, or App Store discussions).
-            - End with '---DEEP_DIVE---' followed by:
-              1. **Rapid Triage & Reputation Execution Plan**: Output 4 scannable bullet points (max 25 words each) formatted strictly as `- **[Area] Problem -> Fix:** [Current sentiment/ops trigger] -> [Exact SLA, product, or comms action]`.
-              2. **Social Listening & Escalation SLA Matrix**: A compact 4-row table:
-                 | Listening Cluster & Channels | Trigger Signal | Severity & SLA | Owner & Resolution Play |
-              3. **Top 10 Influencers & YouTube Channels for Brand Collaboration**: A 10-row outreach table identifying real, relevant YouTube channels and social creators who review or talk about products/categories aligned with {company}:
-                 | Rank | Creator / Channel Name | Primary Platform | Category & Audience Fit | Recommended Collab Angle |
-            """
-
-            e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v3", p1, preferred="gemini", use_search=True, use_url_context=True)
-            e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v2", p_paid, preferred="claude", use_search=True, use_url_context=True)
-            e2 = get_or_generate_text_element(company, "agent2_pricing_v2", p2, preferred="claude", use_search=True, use_url_context=True)
-            e3 = get_or_generate_text_element(company, "agent3_creative_v2", p3, preferred="claude")
-            e4 = get_or_generate_text_element(company, "agent4_social_v2", p4, preferred="gemini", use_search=True, use_url_context=True)
-
-            img_meta = None
-            img_banner = None
-            img_hook_frame = None
-
-            if generate_images:
-                logo_bytes = brand_logo["bytes"] if brand_logo["ok"] else None
-                meta_prompt = (
-                    f"Create a sleek, modern Instagram/Meta feed advertisement creative (1:1) for {company}. "
-                    f"Strictly align with this brand design language: {brand_dna_text} "
-                    f"Apple-inspired clean commercial composition, authentic natural photography, MAXIMUM 2 clean UI elements (1 crisp offer pill badge + 1 primary CTA button), generous breathing room, zero cluttered text."
-                )
-                banner_prompt = (
-                    f"Create a sleek widescreen digital display banner ad creative (16:9) for {company}. "
-                    f"Strictly align with this brand design language: {brand_dna_text} "
-                    f"Hero product/service showcase on clean off-white/warm brand backdrop, MAXIMUM 2 clean UI elements (1 bold headline + 1 CTA button), zero clutter."
-                )
-                hook_frame_prompt = (
-                    f"Create the opening 0-second keyframe visual for a 4-second commercial video ad hook (16:9) for {company}. "
-                    f"Strictly align with this brand design language: {brand_dna_text} "
-                    f"High-attention candid hero moment with clean composition, MAXIMUM 2 clean UI overlays (1 short 4-word hook headline + 1 subtle CTA badge), zero clutter."
-                )
-                img_meta = get_or_generate_image_element(company, "meta_ad_1x1_v3", meta_prompt, aspect_ratio="1:1", logo_bytes=logo_bytes)
-                img_banner = get_or_generate_image_element(company, "banner_ad_16x9_v3", banner_prompt, aspect_ratio="16:9", logo_bytes=logo_bytes)
-                img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9_v3", hook_frame_prompt, aspect_ratio="16:9", logo_bytes=logo_bytes)
-
-            st.session_state["last_audit"] = {
-                "company": company,
-                "official_url": official_url,
-                "brand_logo": brand_logo,
-                "brand_intel": brand_intel,
-                "e1": e1,
-                "e_paid": e_paid,
-                "e2": e2,
-                "e3": e3,
-                "e4": e4,
-                "img_meta": img_meta,
-                "img_banner": img_banner,
-                "img_hook_frame": img_hook_frame,
-            }
+        st.session_state["last_audit"] = run_live_audit(target_company.strip())
+        st.rerun()
 
 # -----------------------------------------------------------------------------
-# RENDER RESULTS & EXECUTIVE PDF DOWNLOAD
+# COMMAND BANNER + INTERACTIVE BENTO TILES + FOCUSED MODULE VIEW
 # -----------------------------------------------------------------------------
 audit = st.session_state.get("last_audit")
 if audit:
     company = audit["company"]
     official_url = audit.get("official_url", "")
-    tracked_items = [
-        audit.get("brand_intel"), audit["e1"], audit["e_paid"], audit["e2"], audit["e3"], audit["e4"],
-        audit.get("img_meta"), audit.get("img_banner"), audit.get("img_hook_frame")
-    ]
-    active_items = [x for x in tracked_items if isinstance(x, dict)]
-    cached_count = sum(1 for x in active_items if x.get("ok") and x.get("from_cache"))
-    fresh_count = sum(1 for x in active_items if x.get("ok") and not x.get("from_cache"))
-    failed_count = sum(1 for x in active_items if not x.get("ok"))
+    is_showcase = audit.get("is_showcase", False)
+    kpis = audit.get("kpis", {})
+    hooks = audit.get("tile_hooks", {})
 
-    col_status, col_pdf = st.columns([3.0, 1.3], vertical_alignment="center")
-    with col_status:
+    scores_num = []
+    for k in ["seo", "paid", "pricing", "social"]:
+        try:
+            scores_num.append(int(hooks.get(k, ("65", ""))[0]))
+        except Exception:
+            pass
+    composite_health = round(sum(scores_num) / len(scores_num)) if scores_num else 66
+
+    # Command Banner + PDF Download
+    col_banner, col_pdf = st.columns([3.4, 1.2], vertical_alignment="top")
+    with col_banner:
+        mode_label = "Curated Executive Snapshot" if is_showcase else "Live Search + URL Context Audit"
+        logo_html = ""
+        bl = audit.get("brand_logo") or {}
+        if bl.get("ok") and bl.get("bytes"):
+            import base64
+            b64_logo = base64.b64encode(bl["bytes"]).decode("utf-8")
+            logo_html = f'<img src="data:image/png;base64,{b64_logo}" style="height:36px;width:auto;border-radius:8px;margin-right:12px;vertical-align:middle;" />'
+
         st.markdown(f"""
-        <div class="status-strip">
-            <span><strong>{company}</strong>  •  <a href="{official_url}" target="_blank" style="color:#0071E3;text-decoration:none;">{official_url}</a></span>
-            <span style="color:#6E6E73;">Cache Hits: <strong>{cached_count}</strong>  |  Fresh: <strong>{fresh_count}</strong>  |  Failed: <strong>{failed_count}</strong></span>
+        <div class="command-banner">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.6rem;">
+                <div>
+                    {logo_html}
+                    <span style="font-size:1.35rem;font-weight:700;letter-spacing:-0.02em;color:#1D1D1F;vertical-align:middle;">{company}</span>
+                    <span style="font-size:0.85rem;color:#6E6E73;margin-left:8px;vertical-align:middle;">• <a href="{official_url}" target="_blank" style="color:#0071E3;text-decoration:none;">{official_url}</a></span>
+                </div>
+                <div>
+                    <span class="apple-meta-pill">{mode_label}</span>
+                    {score_badge_html(composite_health)}
+                </div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
     with col_pdf:
+        st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
         pdf_bytes = build_executive_pdf(audit)
         st.download_button(
             label="Download Executive PDF",
@@ -998,23 +1576,58 @@ if audit:
             use_container_width=True
         )
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "SEO, AEO & GEO",
-        "Paid Search & CRO",
-        "Pricing & Unit Economics",
-        "Ad Creative Studio",
-        "Social & Brand Triage"
-    ])
+    k1, k2, k3 = st.columns(3)
+    with k1:
+        st.markdown(f'<div class="kpi-mini-card"><div class="kpi-mini-label">Primary Margin / Monetization Lever</div><div class="kpi-mini-value">{kpis.get("margin_lever", "")}</div></div>', unsafe_allow_html=True)
+    with k2:
+        st.markdown(f'<div class="kpi-mini-card"><div class="kpi-mini-label">Primary Funnel / Growth Leak</div><div class="kpi-mini-value">{kpis.get("funnel_leak", "")}</div></div>', unsafe_allow_html=True)
+    with k3:
+        st.markdown(f'<div class="kpi-mini-card"><div class="kpi-mini-label">Primary Reputation / Trust Watchout</div><div class="kpi-mini-value">{kpis.get("reputation_risk", "")}</div></div>', unsafe_allow_html=True)
 
-    def render_bento_tab(title: str, item: dict, expander_title: str, governance_footnote: str | None = None):
-        if not item["ok"]:
-            st.error(f"Module unavailable: {item['error']}")
-            st.caption("Click 'Run Intelligence Suite' again to selectively retry this module.")
+    st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
+
+    # 5 Interactive Bento Tiles (Clicking switches the active view below)
+    active_mod = st.session_state.get("active_module", "pricing")
+    row1_keys = ["seo", "paid", "pricing"]
+    row2_keys = ["creative", "social"]
+
+    def render_bento_row(keys: list[str]):
+        cols = st.columns(len(keys))
+        for idx, m_key in enumerate(keys):
+            with cols[idx]:
+                sc_str, hook_txt = hooks.get(m_key, ("65", "Click to inspect diagnostics."))
+                is_sel = (active_mod == m_key)
+                tile_cls = "bento-tile bento-tile-active" if is_sel else "bento-tile"
+                st.markdown(f"""
+                <div class="{tile_cls}">
+                    <div class="bento-top-row">
+                        <span class="bento-title">{MODULE_META[m_key]["short_title"]}</span>
+                        {score_badge_html(sc_str)}
+                    </div>
+                    <div class="bento-hook">{hook_txt}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                btn_label = "Viewing Module" if is_sel else f"Open {MODULE_META[m_key]['short_title']}"
+                if st.button(btn_label, key=f"tile_btn_{m_key}", use_container_width=True):
+                    st.session_state["active_module"] = m_key
+                    st.rerun()
+
+    render_bento_row(row1_keys)
+    st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
+    render_bento_row(row2_keys)
+
+    st.markdown("---")
+
+    # Focused Module Detail View (Switches based on selected Bento Tile)
+    def render_focused_text_module(m_key: str, item: dict):
+        meta = MODULE_META[m_key]
+        if not item or not item.get("ok"):
+            st.error(f"Module unavailable: {item.get('error', 'Unknown error')}")
             return
-        cache_tag = f"Cached ({item['age']})" if item["from_cache"] else "Freshly Generated"
+        cache_tag = f"Cached ({item['age']})" if item.get("from_cache") else "Freshly Generated"
         st.markdown(f"""
         <div class="apple-section-header">
-            <div class="apple-card-header">{title}</div>
+            <div class="apple-card-header">{meta["full_title"]}</div>
             <div class="apple-meta-pill">{item['engine']}  •  {cache_tag}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -1022,40 +1635,19 @@ if audit:
         parts = item["content"].split("---DEEP_DIVE---")
         st.markdown(parts[0].strip())
         if len(parts) > 1 and parts[1].strip():
-            with st.expander(expander_title):
+            with st.expander(meta["expander"], expanded=True):
                 st.markdown(parts[1].strip())
-        if governance_footnote:
-            st.markdown(f'<div class="governance-note">{governance_footnote}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="governance-note">{meta["governance"]}</div>', unsafe_allow_html=True)
 
-    with tab1:
-        render_bento_tab(
-            "Organic Search Intelligence: SEO, AEO & GEO",
-            audit["e1"],
-            "View AI Prompt Visibility Matrix & Technical SEO Blueprint",
-            governance_footnote="Governance Note: Diagnostic signals are synthesized via live AI search & URL context grounding; verify named entities and exact review counts prior to board distribution."
-        )
+    if active_mod in ("seo", "paid", "pricing", "social"):
+        key_map = {"seo": "e1", "paid": "e_paid", "pricing": "e2", "social": "e4"}
+        render_focused_text_module(active_mod, audit.get(key_map[active_mod]))
 
-    with tab2:
-        render_bento_tab(
-            "Paid Acquisition, Shopping & Funnel CRO",
-            audit["e_paid"],
-            "View PMax Architecture, Funnel Fixes & Experiment Backlog",
-            governance_footnote="Governance Note: Benchmarks reflect observable live storefront/ad signals and industry unit-economics heuristics; validate against live ad-account telemetry."
-        )
-
-    with tab3:
-        render_bento_tab(
-            "Pricing Architecture & Unit Economics",
-            audit["e2"],
-            "View Tier Optimization Playbook & Unit-Economics Impact Matrix",
-            governance_footnote="Governance Note: Pricing signals reflect live storefront/search observations; model exact contribution-margin sensitivity against internal SKU COGS and freight tables."
-        )
-
-    with tab4:
+    elif active_mod == "creative":
         bi = audit.get("brand_intel")
         bi_meta = ""
-        if bi and bi["ok"]:
-            bi_cache = f"Cached ({bi['age']})" if bi["from_cache"] else "Freshly Generated"
+        if bi and bi.get("ok"):
+            bi_cache = f"Cached ({bi['age']})" if bi.get("from_cache") else "Freshly Generated"
             bi_meta = f'<div class="apple-meta-pill">{bi["engine"]}  •  {bi_cache}</div>'
 
         st.markdown(f"""
@@ -1065,10 +1657,8 @@ if audit:
         </div>
         """, unsafe_allow_html=True)
 
-        if bi and bi["ok"]:
+        if bi and bi.get("ok"):
             st.markdown(bi["content"])
-        else:
-            st.info(f"Using baseline brand profile for {company}.")
 
         q = quote_plus(company)
         meta_lib_url = f"https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=IN&q={q}&search_type=keyword_unordered"
@@ -1080,12 +1670,7 @@ if audit:
         )
 
         st.markdown("---")
-        render_bento_tab(
-            "Next-Gen Ad Copy & Creative Hooks",
-            audit["e3"],
-            "View Creative Rationale & A/B Testing Matrix",
-            governance_footnote="Governance Note: Ad copy follows strict platform character caps; visual concepts are AI-rendered prototypes for creative direction and A/B testing."
-        )
+        render_focused_text_module("creative", audit.get("e3"))
 
         if generate_images:
             st.markdown("---")
@@ -1105,42 +1690,31 @@ if audit:
             if bl.get("ok") and bl.get("bytes"):
                 c_logo, c_note = st.columns([0.6, 4.4], vertical_alignment="center")
                 with c_logo:
-                    st.image(bl["bytes"], width=84)
+                    st.image(bl["bytes"], width=76)
                 with c_note:
-                    st.caption(f"Verified reference asset extracted from **{bl.get('source')}** and passed directly into image generation to preserve brand mark fidelity.")
+                    st.caption(f"Verified reference asset extracted from **{bl.get('source')}** (<=5 MB) and passed into image generation.")
 
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("**Meta Feed Ad (1:1)**")
-                m = audit.get("img_meta")
-                if m and m["ok"]:
-                    st.image(m["bytes"], use_container_width=True)
-                    st.caption(f"{'Cached (' + m['age'] + ')' if m['from_cache'] else 'Freshly Generated'}")
-                elif m:
-                    st.warning(f"Meta image failed (will retry on next run): {m['error']}")
+            has_any_img = any(
+                (audit.get(k) or {}).get("ok") and (audit.get(k) or {}).get("bytes")
+                for k in ["img_meta", "img_banner", "img_hook_frame"]
+            )
+            if not has_any_img:
+                st.info("Visual mockups are generated automatically during a Live Audit when image generation is enabled.")
+            else:
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("**Meta Feed Ad (1:1)**")
+                    m = audit.get("img_meta")
+                    if m and m.get("ok"):
+                        st.image(m["bytes"], use_container_width=True)
+                with col2:
+                    st.markdown("**Display Banner (16:9)**")
+                    b = audit.get("img_banner")
+                    if b and b.get("ok"):
+                        st.image(b["bytes"], use_container_width=True)
 
-            with col2:
-                st.markdown("**Display Banner (16:9)**")
-                b = audit.get("img_banner")
-                if b and b["ok"]:
-                    st.image(b["bytes"], use_container_width=True)
-                    st.caption(f"{'Cached (' + b['age'] + ')' if b['from_cache'] else 'Freshly Generated'}")
-                elif b:
-                    st.warning(f"Banner image failed (will retry on next run): {b['error']}")
-
-            st.markdown("---")
-            st.markdown("**4-Second Video Hook — Opening Keyframe (16:9)**")
-            hf = audit.get("img_hook_frame")
-            if hf and hf["ok"]:
-                st.image(hf["bytes"], use_container_width=True)
-                st.caption(f"{'Cached (' + hf['age'] + ')' if hf['from_cache'] else 'Freshly Generated'}")
-            elif hf:
-                st.warning(f"Video hook keyframe failed (will retry on next run): {hf['error']}")
-
-    with tab5:
-        render_bento_tab(
-            "Brand Reputation, Social Listening & Creator Partnerships",
-            audit["e4"],
-            "View Rapid Triage Playbook, Escalation SLAs & Top 10 Creator Outreach Roster",
-            governance_footnote="Governance Note: Customer feedback snippets, scores, and creator handles are synthesized via live search & URL context grounding; verify active handle metrics and CS ticket taxonomy before outreach."
-        )
+                st.markdown("---")
+                st.markdown("**4-Second Video Hook — Opening Keyframe (16:9)**")
+                hf = audit.get("img_hook_frame")
+                if hf and hf.get("ok"):
+                    st.image(hf["bytes"], use_container_width=True)
