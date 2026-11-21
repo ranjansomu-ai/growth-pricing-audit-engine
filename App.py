@@ -45,7 +45,7 @@ BACKEND_FORCE_REFRESH = _get_secret("FORCE_REFRESH", "false").lower() in ("1", "
 GENERATE_IMAGES_DEFAULT = _get_secret("GENERATE_IMAGES", "true").lower() in ("1", "true", "yes")
 
 # -----------------------------------------------------------------------------
-# UNIFIED TYPOGRAPHY, WHITE BUTTON FONT & UNIFORM BENTO CSS
+# UNIFIED TYPOGRAPHY, APPLE PILL BUTTONS & UNIFORM BENTO CSS
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -59,6 +59,8 @@ st.markdown("""
     --fs-h2: 1.45rem;
     --fs-h3: 1.15rem;
     --fs-body: 0.95rem;
+    --apple-blue: #0071E3;
+    --apple-blue-hover: #0077ED;
 }
 
 html, body, [class*="css"], .stApp, .stMarkdown, p, li, label, input, div, span, table, th, td {
@@ -107,7 +109,7 @@ h3 {
 .suite-eyebrow {
     font-size: var(--fs-body) !important;
     font-weight: 600 !important;
-    color: #0071E3 !important;
+    color: var(--apple-blue) !important;
     margin-bottom: 0.25rem !important;
 }
 
@@ -140,7 +142,7 @@ h3 {
 
 .bento-card-selected {
     background-color: #F4F9FF;
-    border: 1.8px solid #0071E3;
+    border: 1.8px solid var(--apple-blue);
     box-shadow: 0 6px 16px rgba(0, 113, 227, 0.10);
 }
 
@@ -161,7 +163,7 @@ h3 {
 .bento-score {
     font-size: var(--fs-body) !important;
     font-weight: 600 !important;
-    color: #0071E3 !important;
+    color: var(--apple-blue) !important;
     background-color: #EEF6FF;
     padding: 0.12rem 0.55rem;
     border-radius: 999px;
@@ -187,48 +189,57 @@ div[data-testid="stTextInput"] input {
     color: #1D1D1F !important;
 }
 
-/* White font across all action buttons */
+/* Primary solid Apple pill buttons (Run Live Audit + Bento Inspect/Close) */
 div[data-testid="stButton"] > button,
 div[data-testid="stButton"] > button p,
-div[data-testid="stButton"] > button span,
-div[data-testid="stDownloadButton"] > button,
-div[data-testid="stDownloadButton"] > button p,
-div[data-testid="stDownloadButton"] > button span {
+div[data-testid="stButton"] > button span {
     font-family: var(--font-ui) !important;
     font-weight: 500 !important;
     font-size: var(--fs-body) !important;
     color: #FFFFFF !important;
 }
 
-div[data-testid="stButton"] > button,
-div[data-testid="stDownloadButton"] > button {
-    border-radius: 980px !important;
-    padding: 0.45rem 1.05rem !important;
-    background-color: #0071E3 !important;
-    border: none !important;
+div[data-testid="stButton"] > button {
+    border-radius: 999px !important;
+    padding: 0.45rem 1.2rem !important;
+    background-color: var(--apple-blue) !important;
+    border: 1.5px solid var(--apple-blue) !important;
+    transition: background-color 0.15s ease, border-color 0.15s ease !important;
 }
 
-div[data-testid="stButton"] > button:hover,
-div[data-testid="stDownloadButton"] > button:hover {
-    background-color: #0077ED !important;
+div[data-testid="stButton"] > button:hover {
+    background-color: var(--apple-blue-hover) !important;
+    border-color: var(--apple-blue-hover) !important;
     color: #FFFFFF !important;
 }
 
-/* Distinct slate-grey preset buttons with white font */
+/* Apple secondary pill outline style (Sample: Supertails, Sample: Enphase, Download PDF) */
 button[aria-label*="Sample:"],
 button[aria-label*="Sample:"] p,
-button[aria-label*="Sample:"] span {
-    color: #FFFFFF !important;
+button[aria-label*="Sample:"] span,
+div[data-testid="stDownloadButton"] > button,
+div[data-testid="stDownloadButton"] > button p,
+div[data-testid="stDownloadButton"] > button span {
+    font-family: var(--font-ui) !important;
+    font-weight: 500 !important;
+    font-size: var(--fs-body) !important;
+    color: var(--apple-blue) !important;
 }
 
-button[aria-label*="Sample:"] {
-    background-color: #6E6E73 !important;
-    border: 1px solid #5A5A5E !important;
+button[aria-label*="Sample:"],
+div[data-testid="stDownloadButton"] > button {
+    background-color: transparent !important;
+    border: 1.5px solid var(--apple-blue) !important;
+    border-radius: 999px !important;
+    padding: 0.45rem 1.2rem !important;
+    transition: background-color 0.15s ease, color 0.15s ease !important;
 }
 
-button[aria-label*="Sample:"]:hover {
-    background-color: #5A5A5E !important;
-    color: #FFFFFF !important;
+button[aria-label*="Sample:"]:hover,
+div[data-testid="stDownloadButton"] > button:hover {
+    background-color: rgba(0, 113, 227, 0.06) !important;
+    border-color: var(--apple-blue-hover) !important;
+    color: var(--apple-blue-hover) !important;
 }
 
 details[data-testid="stExpander"] {
@@ -1326,9 +1337,9 @@ with c_run:
             st.session_state["selected_bento_v5"] = None
             st.rerun()
 
-# Line 2: Sample Presets (separate row below live audit with distinct slate buttons)
+# Line 2: Sample Presets (Apple secondary outline pill buttons)
 st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
-p_lbl, p_b1, p_b2, _ = st.columns([2.2, 1.2, 1.2, 1.2], vertical_alignment="center")
+p_lbl, p_b1, p_b2, _ = st.columns([2.2, 1.25, 1.25, 1.1], vertical_alignment="center")
 with p_lbl:
     st.markdown('<div class="preset-strip-label">Sample Presets (pre-loaded reference audits for instant exploration):</div>', unsafe_allow_html=True)
 with p_b1:
@@ -1446,7 +1457,7 @@ if selected_bento in key_lookup:
                 ready_imgs = [(lbl, im) for lbl, im in imgs if im and im.get("ok") and im.get("bytes")]
                 if ready_imgs:
                     st.markdown("---")
-                    st.markdown("#### Generated Visual Creatives")
+                    st.markdown("### Generated Visual Creatives")
                     for lbl, im in ready_imgs:
                         st.markdown(f"**{lbl}**")
                         st.image(im["bytes"], use_container_width=True)
