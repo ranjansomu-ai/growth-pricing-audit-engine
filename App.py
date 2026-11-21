@@ -6,6 +6,7 @@ from PIL import Image
 from urllib.parse import quote_plus, urljoin
 from fpdf import FPDF
 import urllib.request
+import base64
 import io
 import os
 import json
@@ -524,7 +525,6 @@ def build_sample_showcase(brand_key: str) -> dict:
             )
         }
 
-    # Default: Supertails (validated showcase)
     return {
         "company": "Supertails",
         "official_url": "https://supertails.com",
@@ -700,7 +700,7 @@ def build_sample_showcase(brand_key: str) -> dict:
             "| 8 | Pet Wellness, Grooming & Coat Care Creators | Instagram & YouTube | Skin/coat & seasonal care seekers | Coat & skin care routine across seasons |\n"
             "| 9 | Multi-Pet Household Vloggers | YouTube | High-frequency repeat food & supply buyers | Managing multi-pet monthly replenishment easily |\n"
             "| 10 | Pet Behavior & Enrichment Creators | Instagram & YouTube | Engaged millennial/Gen-Z pet parents | Enrichment + balanced treat/nutrition pairing |"
-        }
+        )
     }
 
 
@@ -1538,14 +1538,12 @@ if audit:
             pass
     composite_health = round(sum(scores_num) / len(scores_num)) if scores_num else 66
 
-    # Command Banner + PDF Download
     col_banner, col_pdf = st.columns([3.4, 1.2], vertical_alignment="top")
     with col_banner:
         mode_label = "Curated Executive Snapshot" if is_showcase else "Live Search + URL Context Audit"
         logo_html = ""
         bl = audit.get("brand_logo") or {}
         if bl.get("ok") and bl.get("bytes"):
-            import base64
             b64_logo = base64.b64encode(bl["bytes"]).decode("utf-8")
             logo_html = f'<img src="data:image/png;base64,{b64_logo}" style="height:36px;width:auto;border-radius:8px;margin-right:12px;vertical-align:middle;" />'
 
@@ -1586,7 +1584,6 @@ if audit:
 
     st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
 
-    # 5 Interactive Bento Tiles (Clicking switches the active view below)
     active_mod = st.session_state.get("active_module", "pricing")
     row1_keys = ["seo", "paid", "pricing"]
     row2_keys = ["creative", "social"]
@@ -1618,7 +1615,6 @@ if audit:
 
     st.markdown("---")
 
-    # Focused Module Detail View (Switches based on selected Bento Tile)
     def render_focused_text_module(m_key: str, item: dict):
         meta = MODULE_META[m_key]
         if not item or not item.get("ok"):
