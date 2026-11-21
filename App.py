@@ -45,7 +45,7 @@ BACKEND_FORCE_REFRESH = _get_secret("FORCE_REFRESH", "false").lower() in ("1", "
 GENERATE_IMAGES_DEFAULT = _get_secret("GENERATE_IMAGES", "true").lower() in ("1", "true", "yes")
 
 # -----------------------------------------------------------------------------
-# UNIFIED TYPOGRAPHY, LIGHT-GREY PRESET BUTTONS & UNIFORM BENTO CSS
+# UNIFIED TYPOGRAPHY, WHITE BUTTON FONT & UNIFORM BENTO CSS
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -61,7 +61,7 @@ st.markdown("""
     --fs-body: 0.95rem;
 }
 
-html, body, [class*="css"], .stApp, .stMarkdown, p, li, label, input, button, div, span, table, th, td {
+html, body, [class*="css"], .stApp, .stMarkdown, p, li, label, input, div, span, table, th, td {
     font-family: var(--font-ui) !important;
     font-size: var(--fs-body);
     color: #1D1D1F;
@@ -187,34 +187,48 @@ div[data-testid="stTextInput"] input {
     color: #1D1D1F !important;
 }
 
+/* White font across all action buttons */
+div[data-testid="stButton"] > button,
+div[data-testid="stButton"] > button p,
+div[data-testid="stButton"] > button span,
+div[data-testid="stDownloadButton"] > button,
+div[data-testid="stDownloadButton"] > button p,
+div[data-testid="stDownloadButton"] > button span {
+    font-family: var(--font-ui) !important;
+    font-weight: 500 !important;
+    font-size: var(--fs-body) !important;
+    color: #FFFFFF !important;
+}
+
 div[data-testid="stButton"] > button,
 div[data-testid="stDownloadButton"] > button {
     border-radius: 980px !important;
-    font-weight: 500 !important;
-    font-size: var(--fs-body) !important;
     padding: 0.45rem 1.05rem !important;
     background-color: #0071E3 !important;
-    color: #FFFFFF !important;
     border: none !important;
 }
 
-div[data-testid="stDownloadButton"] > button {
-    background-color: #FFFFFF !important;
-    color: #0071E3 !important;
-    border: 1px solid #D2D2D7 !important;
+div[data-testid="stButton"] > button:hover,
+div[data-testid="stDownloadButton"] > button:hover {
+    background-color: #0077ED !important;
+    color: #FFFFFF !important;
 }
 
-/* Distinct light-grey buttons for Sample Presets */
+/* Distinct slate-grey preset buttons with white font */
+button[aria-label*="Sample:"],
+button[aria-label*="Sample:"] p,
+button[aria-label*="Sample:"] span {
+    color: #FFFFFF !important;
+}
+
 button[aria-label*="Sample:"] {
-    background-color: #F2F2F7 !important;
-    color: #1D1D1F !important;
-    border: 1px solid #D2D2D7 !important;
+    background-color: #6E6E73 !important;
+    border: 1px solid #5A5A5E !important;
 }
 
 button[aria-label*="Sample:"]:hover {
-    background-color: #E5E5EA !important;
-    color: #1D1D1F !important;
-    border-color: #A1A1A6 !important;
+    background-color: #5A5A5E !important;
+    color: #FFFFFF !important;
 }
 
 details[data-testid="stExpander"] {
@@ -1312,7 +1326,7 @@ with c_run:
             st.session_state["selected_bento_v5"] = None
             st.rerun()
 
-# Line 2: Sample Presets (separate row below live audit with light-grey buttons)
+# Line 2: Sample Presets (separate row below live audit with distinct slate buttons)
 st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
 p_lbl, p_b1, p_b2, _ = st.columns([2.2, 1.2, 1.2, 1.2], vertical_alignment="center")
 with p_lbl:
@@ -1432,7 +1446,7 @@ if selected_bento in key_lookup:
                 ready_imgs = [(lbl, im) for lbl, im in imgs if im and im.get("ok") and im.get("bytes")]
                 if ready_imgs:
                     st.markdown("---")
-                    st.markdown("### Generated Visual Creatives")
+                    st.markdown("#### Generated Visual Creatives")
                     for lbl, im in ready_imgs:
                         st.markdown(f"**{lbl}**")
                         st.image(im["bytes"], use_container_width=True)
