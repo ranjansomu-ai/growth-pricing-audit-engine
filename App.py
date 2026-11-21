@@ -6,6 +6,7 @@ from PIL import Image
 from urllib.parse import quote_plus, urljoin
 from fpdf import FPDF
 import urllib.request
+import base64
 import io
 import os
 import json
@@ -44,7 +45,7 @@ BACKEND_FORCE_REFRESH = _get_secret("FORCE_REFRESH", "false").lower() in ("1", "
 GENERATE_IMAGES_DEFAULT = _get_secret("GENERATE_IMAGES", "true").lower() in ("1", "true", "yes")
 
 # -----------------------------------------------------------------------------
-# CLEAN EDITORIAL STYLING (FULL WIDTH, NO SIDEBAR)
+# UNIFORM BENTO & EDITORIAL CSS
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -59,8 +60,8 @@ html, body, [class*="css"], .stApp {
 }
 
 .block-container {
-    max-width: 980px !important;
-    padding-top: 2.2rem !important;
+    max-width: 1080px !important;
+    padding-top: 2rem !important;
     padding-bottom: 4rem !important;
 }
 
@@ -85,8 +86,88 @@ html, body, [class*="css"], .stApp {
 .suite-subtitle {
     font-size: 1.04rem;
     color: #6E6E73;
-    margin: 0 0 1.5rem 0;
+    margin: 0 0 1.25rem 0;
     line-height: 1.45;
+}
+
+.demo-callout {
+    background-color: #F5F5F7;
+    border: 1px solid #E5E5EA;
+    border-radius: 12px;
+    padding: 0.7rem 1rem;
+    font-size: 0.88rem;
+    color: #424245;
+    margin-bottom: 1.2rem;
+}
+
+.rec-box {
+    background-color: #FFFFFF;
+    border: 1px solid #E5E5EA;
+    border-radius: 16px;
+    padding: 1.15rem 1.35rem;
+    margin: 0.9rem 0 1.3rem 0;
+}
+
+.rec-heading {
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #0071E3;
+    margin-bottom: 0.55rem;
+}
+
+.bento-card {
+    background-color: #FFFFFF;
+    border: 1.5px solid #E5E5EA;
+    border-radius: 16px;
+    padding: 1rem 1.05rem;
+    height: 148px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bento-card-selected {
+    background-color: #F4F9FF;
+    border: 1.8px solid #0071E3;
+    box-shadow: 0 6px 16px rgba(0, 113, 227, 0.10);
+}
+
+.bento-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.4rem;
+}
+
+.bento-pillar {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #1D1D1F;
+    line-height: 1.25;
+}
+
+.bento-score {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #0071E3;
+    background-color: #EEF6FF;
+    padding: 0.16rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.bento-oneliner {
+    font-size: 0.82rem;
+    color: #424245;
+    line-height: 1.38;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 div[data-testid="stTextInput"] input {
@@ -102,8 +183,8 @@ div[data-testid="stButton"] > button,
 div[data-testid="stDownloadButton"] > button {
     border-radius: 980px !important;
     font-weight: 500 !important;
-    font-size: 0.9rem !important;
-    padding: 0.48rem 1.2rem !important;
+    font-size: 0.88rem !important;
+    padding: 0.45rem 1.1rem !important;
 }
 
 div[data-testid="stButton"] > button {
@@ -122,14 +203,12 @@ details[data-testid="stExpander"] {
     background-color: #FFFFFF !important;
     border: 1px solid #E5E5EA !important;
     border-radius: 14px !important;
-    margin-bottom: 0.75rem !important;
-    padding: 0.15rem 0.4rem !important;
+    margin-top: 0.75rem !important;
 }
 
 details[data-testid="stExpander"] summary {
     font-weight: 600 !important;
-    font-size: 0.98rem !important;
-    color: #1D1D1F !important;
+    color: #0071E3 !important;
 }
 
 table {
@@ -166,7 +245,7 @@ td {
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# SHOWCASE DATA (SUPER-TAILS & ENPHASE ENERGY)
+# MODULE METADATA & CURATED SHOWCASES
 # -----------------------------------------------------------------------------
 MODULE_ORDER = ["seo", "paid", "pricing", "creative", "social"]
 
@@ -176,6 +255,22 @@ MODULE_LABELS = {
     "pricing": "Pricing & Unit Economics",
     "creative": "Ad Creative Studio",
     "social": "Social & Brand Triage",
+}
+
+MODULE_FULL_TITLES = {
+    "seo": "Organic Search Intelligence: SEO, AEO & GEO",
+    "paid": "Paid Acquisition, Shopping & Funnel CRO",
+    "pricing": "Pricing Architecture & Unit Economics",
+    "creative": "Ad Creative Studio & Next-Gen Hooks",
+    "social": "Brand Reputation, Social Listening & Creator Partnerships",
+}
+
+MODULE_DEEP_TITLES = {
+    "seo": "Expand AI Prompt Visibility Matrix & Execution Plan",
+    "paid": "Expand Paid Architecture Fixes & Experiment Backlog",
+    "pricing": "Expand Tier Optimization Playbook & Impact Matrix",
+    "creative": "Expand Creative Rationale & A/B Testing Matrix",
+    "social": "Expand Rapid Triage Plan, Escalation SLAs & Top 10 Creators",
 }
 
 MODULE_GOV = {
@@ -197,13 +292,17 @@ def build_sample_showcase(brand_key: str) -> dict:
             "company": "Enphase Energy",
             "official_url": "https://enphase.com",
             "is_showcase": True,
-            "summary": "Enphase pairs premium microinverter and battery hardware with installer commercial tiers, while homeowner lead conversion and multi-product storage attachment remain key growth levers.",
+            "top_recommendations": [
+                "**Pricing & Bundling:** Package microinverters, battery storage, and smart load controls into clear Good/Better/Best tiers and weight installer incentives toward storage attach.",
+                "**Paid & Funnel CRO:** Separate homeowner lead-gen from installer acquisition, lead social hooks with outage protection, and streamline mobile quote qualification.",
+                "**Social & Partner SLA:** Enforce fast installer callback SLAs and proactive commissioning milestones to prevent regional service friction.",
+            ],
             "hooks": {
-                "seo": ("67", "Strong microinverter authority; sharper homeowner payback & grid-outage comparisons boost AI answer share."),
-                "paid": ("63", "High-intent solar demand exists; simplifying homeowner savings estimates improves qualified lead conversion."),
-                "pricing": ("64", "Enphase pairs premium IQ hardware with installer volume tiers; tying incentives to storage attach lifts margin."),
+                "seo": ("67", "Strong microinverter authority; sharper homeowner payback & grid-outage comparisons lift AI answer share."),
+                "paid": ("63", "High-intent solar demand exists; simpler homeowner savings checks improve qualified lead conversion."),
+                "pricing": ("64", "Premium hardware pairs with installer tiers; tying incentives to battery attach expands blended margin."),
                 "creative": ("71", "Lead with blackout resilience, 25-year reliability, and whole-home energy control over technical jargon."),
-                "social": ("68", "Strong homeowner trust in app telemetry and backup reliability; fast installer escalation closes regional gaps."),
+                "social": ("68", "Strong homeowner trust in app telemetry and backup reliability; faster installer follow-up closes regional gaps."),
             },
             "brand_logo": {"ok": False, "bytes": None, "source": None, "from_cache": False},
             "brand_intel": (
@@ -370,7 +469,11 @@ def build_sample_showcase(brand_key: str) -> dict:
         "company": "Supertails",
         "official_url": "https://supertails.com",
         "is_showcase": True,
-        "summary": "Supertails combines Fear Free vet care and fast local convenience with marketplace-competitive pet food pricing, while third-party delivery friction, checkout fees, and private-label mix offer immediate margin and trust upside.",
+        "top_recommendations": [
+            "**Pricing & Margin:** Gate steep promo discounts behind private-label or higher-AOV baskets and align shipping thresholds with parcel weight and local zones.",
+            "**Paid & Funnel CRO:** Exclude brand terms from non-brand PMax, tier bidding by margin, and simplify checkout fees/COD prompts to lift conversion.",
+            "**Social & Post-Purchase Trust:** Audit courier call/GPS logs on failed delivery attempts and make order cancellations and refund updates effortless.",
+        ],
         "hooks": {
             "seo": ("68", "Strong vet & pet-care authority; category and AI answer visibility leaks to quick-commerce and marketplaces."),
             "paid": ("61", "PMax brand overlap and low-AOV prospecting dilute return; margin-tiered bidding and checkout fixes lift efficiency."),
@@ -541,7 +644,7 @@ def build_sample_showcase(brand_key: str) -> dict:
 
 
 # -----------------------------------------------------------------------------
-# CACHE HELPERS (PER-ELEMENT, 48-HOUR TTL)
+# CACHE HELPERS (48-HOUR TTL)
 # -----------------------------------------------------------------------------
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.strip().lower()).strip("_") or "default"
@@ -1025,9 +1128,11 @@ def build_executive_pdf(audit_data: dict) -> bytes:
     pdf.cell(0, 7, f"Executive Intelligence Brief  |  {datetime.now().strftime('%B %d, %Y')}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
 
-    if audit_data.get("summary"):
-        pdf.render_markdown_block(audit_data["summary"])
-        pdf.ln(2)
+    recs = audit_data.get("top_recommendations") or []
+    if recs:
+        pdf.section_title("Top Impactful Recommendations")
+        for r in recs:
+            pdf.render_markdown_block(f"- {r}")
 
     sections = [
         ("1. SEO, AEO & GEO", audit_data.get("e1")),
@@ -1148,7 +1253,11 @@ def run_live_audit(company: str):
             "company": company,
             "official_url": official_url,
             "is_showcase": False,
-            "summary": f"Live multi-agent diagnostic for {company} ({official_url}) across organic search, paid acquisition & CRO, pricing economics, creative, and reputation.",
+            "top_recommendations": [
+                f"**Pricing & Monetization:** Audit promo gating, shipping thresholds, and high-margin product/service attach for {company}.",
+                f"**Paid & Funnel CRO:** Isolate brand vs. non-brand efficiency, refine targeting cohorts, and reduce landing/checkout friction for {company}.",
+                f"**Social & Trust Triage:** Track high-severity fulfillment/service complaints and partner with top category creators for {company}.",
+            ],
             "hooks": {
                 "seo": (str(s_seo), f"Organic search, AI answer visibility, and schema audit for {company}."),
                 "paid": (str(s_paid), f"Paid search/social efficiency, landing page UX, and checkout diagnostics for {company}."),
@@ -1170,7 +1279,7 @@ def run_live_audit(company: str):
 
 
 # -----------------------------------------------------------------------------
-# HEADER & SINGLE-ROW CONTROLS
+# HEADER, SAMPLE CALLOUT & CONTROLS
 # -----------------------------------------------------------------------------
 st.markdown("""
 <div class="suite-eyebrow">Soumya Ranjan Nayak • AI Growth & Pricing Architecture</div>
@@ -1178,7 +1287,13 @@ st.markdown("""
 <p class="suite-subtitle">
     Structured diagnostics across Organic Search (SEO/AEO/GEO), Paid Acquisition & CRO, Pricing Economics, Brand Creative, and Reputation Triage.
 </p>
+<div class="demo-callout">
+    <strong>Sample Presets (Supertails & Enphase):</strong> Pre-loaded reference audits so you can inspect the full framework immediately—or enter any brand and click <strong>Run Live Audit</strong>.
+</div>
 """, unsafe_allow_html=True)
+
+if "selected_bento" not in st.session_state:
+    st.session_state["selected_bento"] = None
 
 if "last_audit" not in st.session_state:
     st.session_state["last_audit"] = build_sample_showcase("supertails")
@@ -1198,18 +1313,21 @@ with c_run:
             st.warning("Enter a company name first.")
         else:
             st.session_state["last_audit"] = run_live_audit(target_company.strip())
+            st.session_state["selected_bento"] = None
             st.rerun()
 with c_d1:
     if st.button("Supertails", use_container_width=True):
         st.session_state["last_audit"] = build_sample_showcase("supertails")
+        st.session_state["selected_bento"] = None
         st.rerun()
 with c_d2:
     if st.button("Enphase", use_container_width=True):
         st.session_state["last_audit"] = build_sample_showcase("enphase")
+        st.session_state["selected_bento"] = None
         st.rerun()
 
 # -----------------------------------------------------------------------------
-# BRIEF HEADER & ACCORDION MODULES
+# COMPANY HEADER, TOP RECOMMENDATIONS & 5 UNIFORM BENTO TILES
 # -----------------------------------------------------------------------------
 audit = st.session_state["last_audit"]
 company = audit["company"]
@@ -1219,9 +1337,13 @@ hooks = audit.get("hooks", {})
 st.markdown("---")
 h_left, h_right = st.columns([3.4, 1.2], vertical_alignment="center")
 with h_left:
-    st.markdown(f"### {company}")
-    st.caption(f"{official_url}  •  {'Curated Snapshot' if audit.get('is_showcase') else 'Live Audit'}")
-    st.write(audit.get("summary", ""))
+    logo_img_html = ""
+    bl = audit.get("brand_logo") or {}
+    if bl.get("ok") and bl.get("bytes"):
+        b64 = base64.b64encode(bl["bytes"]).decode("utf-8")
+        logo_img_html = f'<img src="data:image/png;base64,{b64}" style="height:28px;width:auto;margin-right:10px;vertical-align:middle;" />'
+    st.markdown(f"### {logo_img_html}{company}", unsafe_allow_html=True)
+    st.caption(f"{official_url}  •  {'Curated Sample' if audit.get('is_showcase') else 'Live Audit'}")
 with h_right:
     st.download_button(
         label="Download PDF",
@@ -1231,8 +1353,49 @@ with h_right:
         use_container_width=True,
     )
 
-st.markdown("")
+recs = audit.get("top_recommendations") or []
+if recs:
+    rec_bullets = "\n".join(f"- {r}" for r in recs)
+    st.markdown(f"""
+    <div class="rec-box">
+        <div class="rec-heading">Most Impactful Recommendations</div>
+        {rec_bullets}
+    </div>
+    """, unsafe_allow_html=True)
 
+# 5 Uniform Bento Boxes (3 on top row, 2 on bottom row—all equal height)
+selected_bento = st.session_state.get("selected_bento")
+
+
+def render_uniform_bento_row(keys: list[str]):
+    cols = st.columns(len(keys))
+    for i, m_key in enumerate(keys):
+        with cols[i]:
+            sc_val, one_line = hooks.get(m_key, ("65", ""))
+            is_sel = (selected_bento == m_key)
+            card_cls = "bento-card bento-card-selected" if is_sel else "bento-card"
+            st.markdown(f"""
+            <div class="{card_cls}">
+                <div class="bento-header">
+                    <span class="bento-pillar">{MODULE_LABELS[m_key]}</span>
+                    <span class="bento-score">{sc_val}/100</span>
+                </div>
+                <div class="bento-oneliner">{one_line}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            btn_txt = "Close" if is_sel else "Inspect"
+            if st.button(btn_txt, key=f"bento_btn_{m_key}", use_container_width=True):
+                st.session_state["selected_bento"] = None if is_sel else m_key
+                st.rerun()
+
+
+render_uniform_bento_row(["seo", "paid", "pricing"])
+st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
+render_uniform_bento_row(["creative", "social"])
+
+# -----------------------------------------------------------------------------
+# COLLAPSED BY DEFAULT DETAIL SECTION (OPENS WHEN A BENTO BOX IS SELECTED)
+# -----------------------------------------------------------------------------
 key_lookup = {
     "seo": "e1",
     "paid": "e_paid",
@@ -1241,45 +1404,43 @@ key_lookup = {
     "social": "e4",
 }
 
-for idx, m_key in enumerate(MODULE_ORDER):
-    score_val, one_liner = hooks.get(m_key, ("65", ""))
-    header_label = f"{MODULE_LABELS[m_key]}  —  {score_val}/100  |  {one_liner}"
-    with st.expander(header_label, expanded=(idx == 2)):
-        item = audit.get(key_lookup[m_key])
+if selected_bento in key_lookup:
+    st.markdown("---")
+    item = audit.get(key_lookup[selected_bento])
+    with st.expander(f"{MODULE_FULL_TITLES[selected_bento]}  ({hooks[selected_bento][0]}/100)", expanded=False):
         if not item or not item.get("ok"):
             st.error(item.get("error", "Module unavailable.") if item else "Module unavailable.")
-            continue
+        else:
+            st.caption(f"{item.get('engine', '')}  •  {item.get('age', '')}")
 
-        st.caption(f"{item.get('engine', '')}  •  {item.get('age', '')}")
+            if selected_bento == "creative" and audit.get("brand_intel"):
+                st.markdown("#### Brand Design Language & Creative Baseline")
+                st.markdown(audit["brand_intel"])
+                q = quote_plus(company)
+                st.markdown(
+                    f"[Meta Ad Library ↗](https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=IN&q={q}&search_type=keyword_unordered)  •  "
+                    f"[Google Ads Transparency ↗](https://adstransparency.google.com/?region=IN&domain={q})"
+                )
+                st.markdown("#### Next-Gen Ad Copy & Hooks")
 
-        if m_key == "creative" and audit.get("brand_intel"):
-            st.markdown("#### Brand Design Language & Creative Baseline")
-            st.markdown(audit["brand_intel"])
-            q = quote_plus(company)
-            st.markdown(
-                f"[Meta Ad Library ↗](https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=IN&q={q}&search_type=keyword_unordered)  •  "
-                f"[Google Ads Transparency ↗](https://adstransparency.google.com/?region=IN&domain={q})"
-            )
-            st.markdown("#### Next-Gen Ad Copy & Hooks")
+            parts = item["content"].split("---DEEP_DIVE---")
+            st.markdown(parts[0].strip())
+            if len(parts) > 1 and parts[1].strip():
+                with st.expander(MODULE_DEEP_TITLES[selected_bento], expanded=False):
+                    st.markdown(parts[1].strip())
 
-        parts = item["content"].split("---DEEP_DIVE---")
-        st.markdown(parts[0].strip())
-        if len(parts) > 1 and parts[1].strip():
-            st.markdown("---")
-            st.markdown(parts[1].strip())
+            if selected_bento == "creative" and GENERATE_IMAGES_DEFAULT:
+                imgs = [
+                    ("Meta Feed Ad (1:1)", audit.get("img_meta")),
+                    ("Display Banner (16:9)", audit.get("img_banner")),
+                    ("4-Second Video Hook Keyframe (16:9)", audit.get("img_hook_frame")),
+                ]
+                ready_imgs = [(lbl, im) for lbl, im in imgs if im and im.get("ok") and im.get("bytes")]
+                if ready_imgs:
+                    st.markdown("---")
+                    st.markdown("#### Generated Visual Creatives")
+                    for lbl, im in ready_imgs:
+                        st.markdown(f"**{lbl}**")
+                        st.image(im["bytes"], use_container_width=True)
 
-        if m_key == "creative":
-            imgs = [
-                ("Meta Feed Ad (1:1)", audit.get("img_meta")),
-                ("Display Banner (16:9)", audit.get("img_banner")),
-                ("4-Second Video Hook Keyframe (16:9)", audit.get("img_hook_frame")),
-            ]
-            ready_imgs = [(lbl, im) for lbl, im in imgs if im and im.get("ok") and im.get("bytes")]
-            if ready_imgs:
-                st.markdown("---")
-                st.markdown("#### Generated Visual Creatives")
-                for lbl, im in ready_imgs:
-                    st.markdown(f"**{lbl}**")
-                    st.image(im["bytes"], use_container_width=True)
-
-        st.markdown(f'<div class="gov-note">{MODULE_GOV[m_key]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="gov-note">{MODULE_GOV[selected_bento]}</div>', unsafe_allow_html=True)
