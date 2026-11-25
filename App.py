@@ -394,7 +394,7 @@ def build_sample_showcase(brand_key: str) -> dict:
             "brand_intel": (
                 "- **Visual Design Language:** Crisp white surfaces, electric blue and emerald accents, clean technical cards, and bright US residential photography.\n"
                 "- **Meta & Social Ad Patterns:** US homeowner energy independence stories, outage protection hooks, and certified installer co-marketing.\n"
-                "- **Google Search & Shopping Messaging:** US microinverter reliability, battery storage readiness, and local installer discovery.\n"
+                "- **Google Search & Shopping Messaging:** US microinverter reliability, battery storage readiness, and certified installer discovery.\n"
                 "- **Core Audience & Trust Triggers:** US homeowners and certified solar installers anchored by reliability and Enlighten app monitoring.\n\n"
                 "| Channel / Format | Current Baseline Pattern | Creative Fatigue / Gap | Next-Gen Hook Angle |\n"
                 "| --- | --- | --- | --- |\n"
@@ -1121,14 +1121,14 @@ class ExecutivePDF(FPDF):
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(110, 110, 115)
         geo_tag = f" ({self.country_label.upper()})" if self.country_label else ""
-        self.cell(0, 8, f"EXECUTIVE INTELLIGENCE BRIEF  |  {self.company_name.upper()}{geo_tag}", align="L")
+        self.cell(0, 8, _clean_pdf_text(f"EXECUTIVE INTELLIGENCE BRIEF  |  {self.company_name.upper()}{geo_tag}"), align="L")
         self.ln(10)
 
     def footer(self):
         self.set_y(-14)
         self.set_font("Helvetica", "", 8)
         self.set_text_color(142, 142, 147)
-        self.cell(0, 8, f"Soumya Ranjan Nayak   |   Page {self.page_no()}", align="C")
+        self.cell(0, 8, _clean_pdf_text(f"Soumya Ranjan Nayak   |   Page {self.page_no()}"), align="C")
 
     def section_title(self, title: str):
         self.ln(3)
@@ -1168,7 +1168,7 @@ class ExecutivePDF(FPDF):
                 x_start = self.l_margin
                 for c_i, cell_txt in enumerate(padded):
                     self.set_xy(x_start + c_i * col_w, y_start)
-                    self.multi_cell(col_w, 4.6, cell_txt, border=1, fill=(idx == 0))
+                    self.multi_cell(col_w, 4.6, _clean_pdf_text(cell_txt), border=1, fill=(idx == 0))
                 self.set_y(y_start + row_h)
             self.ln(3)
             table_rows = []
@@ -1189,17 +1189,17 @@ class ExecutivePDF(FPDF):
             if line.startswith("#"):
                 self.set_font("Helvetica", "B", 11)
                 self.set_text_color(0, 113, 227)
-                self.multi_cell(0, 6, line.lstrip("#").strip())
+                self.multi_cell(0, 6, _clean_pdf_text(line.lstrip("#").strip()))
                 self.ln(1)
             elif line.startswith("- ") or line.startswith("* "):
                 self.set_font("Helvetica", "", 9.5)
                 self.set_text_color(29, 29, 31)
-                self.multi_cell(0, 5.5, f"  -  {line[2:].strip()}")
+                self.multi_cell(0, 5.5, _clean_pdf_text(f"  -  {line[2:].strip()}"))
                 self.ln(1)
             else:
                 self.set_font("Helvetica", "", 9.5)
                 self.set_text_color(44, 44, 46)
-                self.multi_cell(0, 5.5, line)
+                self.multi_cell(0, 5.5, _clean_pdf_text(line))
                 self.ln(1)
 
         flush_table()
@@ -1218,8 +1218,9 @@ def build_executive_pdf(audit_data: dict) -> bytes:
 
     pdf.set_font("Helvetica", "", 10.5)
     pdf.set_text_color(110, 110, 115)
-    geo_part = f"  •  Market: {country_lbl}" if country_lbl else "  •  Market: Global / All Markets"
-    pdf.cell(0, 7, f"Executive Intelligence Brief{geo_part}  |  {datetime.now().strftime('%B %d, %Y')}", new_x="LMARGIN", new_y="NEXT")
+    geo_part = f"  -  Market: {country_lbl}" if country_lbl else "  -  Market: Global / All Markets"
+    subtitle_line = _clean_pdf_text(f"Executive Intelligence Brief{geo_part}  |  {datetime.now().strftime('%B %d, %Y')}")
+    pdf.cell(0, 7, subtitle_line, new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
 
     sections = [
