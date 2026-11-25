@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from google import genai
 from google.genai import types
 import anthropic
@@ -83,7 +84,7 @@ def resolve_region_code(country: str) -> str:
 
 
 # -----------------------------------------------------------------------------
-# UNIFIED TYPOGRAPHY, APPLE PILL BUTTONS & UNIFORM BENTO CSS
+# UNIFIED TYPOGRAPHY, APPLE PILL BUTTONS & CLICKABLE BENTO CSS
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -101,10 +102,17 @@ st.markdown("""
     --apple-blue-hover: #0077ED;
 }
 
-html, body, [class*="css"], .stApp, .stMarkdown, p, li, label, input, div, span, table, th, td {
+html, body, .stApp, .stMarkdown, p, li, label, input, div, table, th, td {
     font-family: var(--font-ui) !important;
     font-size: var(--fs-body);
     color: #1D1D1F;
+}
+
+/* Preserve Streamlit icon fonts so ligatures like arrow_right never collide with text */
+[data-testid="stIconMaterial"],
+.material-symbols-rounded,
+.material-symbols-outlined {
+    font-family: "Material Symbols Rounded", "Material Symbols Outlined", sans-serif !important;
 }
 
 .stApp {
@@ -168,23 +176,68 @@ h3 {
     padding-top: 0.3rem !important;
 }
 
+.status-panel {
+    background-color: #FFFFFF;
+    border: 1px solid #E5E5EA;
+    border-radius: 14px;
+    padding: 0.85rem 1.1rem;
+    margin: 0.8rem 0 0.45rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.status-step-label {
+    font-weight: 600 !important;
+    color: #1D1D1F !important;
+}
+
+.status-pct-pill {
+    font-weight: 600 !important;
+    color: var(--apple-blue) !important;
+    background-color: #EEF6FF;
+    padding: 0.14rem 0.65rem;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+div[data-testid="stProgress"] > div > div > div > div {
+    background-color: var(--apple-blue) !important;
+}
+
+/* Clickable uniform Bento card + invisible full-tile button overlay */
+.bento-tile-shell {
+    position: relative;
+    height: 152px;
+    margin-bottom: 0.25rem;
+}
+
 .bento-card {
     background-color: #FFFFFF;
     border: 1.5px solid #E5E5EA;
     border-radius: 16px;
-    padding: 1rem 1.05rem;
-    height: 148px;
+    padding: 1.05rem 1.1rem;
+    height: 152px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    margin-bottom: 0.45rem;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.bento-tile-shell:hover .bento-card {
+    border-color: #A1A1A6;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 .bento-card-selected {
     background-color: #F4F9FF;
     border: 1.8px solid var(--apple-blue);
-    box-shadow: 0 6px 16px rgba(0, 113, 227, 0.10);
+    box-shadow: 0 6px 16px rgba(0, 113, 227, 0.12);
+}
+
+.bento-tile-shell:hover .bento-card-selected {
+    border-color: var(--apple-blue);
 }
 
 .bento-header {
@@ -214,11 +267,29 @@ h3 {
 .bento-oneliner {
     font-size: var(--fs-body) !important;
     color: #424245 !important;
-    line-height: 1.38 !important;
+    line-height: 1.4 !important;
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+.bento-tile-shell div[data-testid="stElementContainer"],
+.bento-tile-shell div[data-testid="stButton"] {
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.bento-tile-shell div[data-testid="stButton"] > button {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    opacity: 0 !important;
+    cursor: pointer !important;
+    z-index: 5 !important;
+    border-radius: 16px !important;
 }
 
 div[data-testid="stTextInput"] input {
@@ -230,10 +301,9 @@ div[data-testid="stTextInput"] input {
     color: #1D1D1F !important;
 }
 
-/* Primary solid Apple pill buttons (Run Live Audit + Bento Inspect/Close) */
+/* Primary solid Apple pill buttons (Run Live Audit) */
 div[data-testid="stButton"] > button,
-div[data-testid="stButton"] > button p,
-div[data-testid="stButton"] > button span {
+div[data-testid="stButton"] > button p {
     font-family: var(--font-ui) !important;
     font-weight: 500 !important;
     font-size: var(--fs-body) !important;
@@ -254,16 +324,17 @@ div[data-testid="stButton"] > button:hover {
     color: #FFFFFF !important;
 }
 
-/* Apple secondary pill outline style for Download PDF and Sample Preset buttons */
+/* Apple secondary pill outline style for Download PDF, Collapse Details & Sample Preset buttons */
 div[data-testid="stDownloadButton"] > button,
 div[data-testid="stDownloadButton"] > button p,
-div[data-testid="stDownloadButton"] > button span,
 div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button,
 div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button p,
-div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button span,
 div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button,
 div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button p,
-div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button span {
+div:has(> div > .collapse-btn-hook) + div[data-testid="stButton"] > button,
+div:has(> div > .collapse-btn-hook) + div[data-testid="stButton"] > button p,
+div[data-testid="stElementContainer"]:has(.collapse-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button,
+div[data-testid="stElementContainer"]:has(.collapse-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button p {
     font-family: var(--font-ui) !important;
     font-weight: 500 !important;
     font-size: var(--fs-body) !important;
@@ -272,7 +343,9 @@ div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="s
 
 div[data-testid="stDownloadButton"] > button,
 div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button,
-div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button {
+div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button,
+div:has(> div > .collapse-btn-hook) + div[data-testid="stButton"] > button,
+div[data-testid="stElementContainer"]:has(.collapse-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button {
     background-color: transparent !important;
     border: 1.5px solid var(--apple-blue) !important;
     border-radius: 999px !important;
@@ -282,7 +355,9 @@ div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="s
 
 div[data-testid="stDownloadButton"] > button:hover,
 div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button:hover,
-div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button:hover {
+div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button:hover,
+div:has(> div > .collapse-btn-hook) + div[data-testid="stButton"] > button:hover,
+div[data-testid="stElementContainer"]:has(.collapse-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button:hover {
     background-color: rgba(0, 113, 227, 0.06) !important;
     border-color: var(--apple-blue-hover) !important;
     color: var(--apple-blue-hover) !important;
@@ -295,12 +370,18 @@ details[data-testid="stExpander"] {
     margin-top: 0.75rem !important;
 }
 
-details[data-testid="stExpander"] summary,
-details[data-testid="stExpander"] summary p,
-details[data-testid="stExpander"] summary span {
+details[data-testid="stExpander"] summary {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+}
+
+details[data-testid="stExpander"] summary p {
+    font-family: var(--font-ui) !important;
     font-size: var(--fs-body) !important;
     font-weight: 600 !important;
     color: #1D1D1F !important;
+    margin: 0 !important;
 }
 
 table {
@@ -1267,7 +1348,7 @@ def build_executive_pdf(audit_data: dict) -> bytes:
 
 
 # -----------------------------------------------------------------------------
-# GEO-SCOPED LIVE AUDIT ORCHESTRATOR
+# GEO-SCOPED LIVE AUDIT ORCHESTRATOR (WITH VISUAL PROGRESS BAR)
 # -----------------------------------------------------------------------------
 def run_live_audit(company: str, country: str = ""):
     clean_country = (country or "").strip()
@@ -1276,11 +1357,25 @@ def run_live_audit(company: str, country: str = ""):
         if clean_country
         else "GEOGRAPHIC SCOPE MANDATE: Analyze the brand across its primary active commercial markets."
     )
-    spinner_geo = f" ({clean_country})" if clean_country else ""
 
-    with st.spinner(f"Running 5-module intelligence audit for {company}{spinner_geo}..."):
+    progress_slot = st.empty()
+    bar_slot = st.empty()
+
+    def update_status(pct: int, stage_title: str):
+        progress_slot.markdown(f"""
+        <div class="status-panel">
+            <span class="status-step-label">{stage_title}</span>
+            <span class="status-pct-pill">{pct}%</span>
+        </div>
+        """, unsafe_allow_html=True)
+        bar_slot.progress(min(100, max(0, pct)))
+
+    try:
+        update_status(10, "Resolving official domain & brand mark...")
         official_url = get_or_resolve_official_url(company, country=clean_country)
         brand_logo = get_or_fetch_brand_logo(company, official_url, country=clean_country)
+
+        update_status(22, "Mapping brand design language & ad baseline...")
         brand_dna_text = get_or_generate_brand_intel(company, official_url, country=clean_country)
 
         p1 = f"""
@@ -1333,49 +1428,64 @@ def run_live_audit(company: str, country: str = ""):
         - End with '---DEEP_DIVE---' followed by 4 bullets (`- **[Area] Problem -> Fix:** ...`), a 4-row SLA table (`| Listening Cluster & Channels | Trigger Signal | Severity & SLA | Owner & Resolution Play |`), and a 10-row creator table (`| Rank | Creator / Channel Name | Primary Platform | Category & Audience Fit | Recommended Collab Angle |`).
         """
 
+        update_status(35, "Running SEO, AEO & GEO search module...")
         e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v3", p1, preferred="gemini", use_search=True, use_url_context=True, country=clean_country)
+
+        update_status(48, "Running Paid Search & Funnel CRO module...")
         e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v2", p_paid, preferred="gemini", use_search=True, use_url_context=True, country=clean_country)
+
+        update_status(60, "Running Pricing & Unit Economics module...")
         e2 = get_or_generate_text_element(company, "agent2_pricing_v2", p2, preferred="gemini", use_search=True, use_url_context=True, country=clean_country)
+
+        update_status(72, "Generating ad copy & creative angles...")
         e3 = get_or_generate_text_element(company, "agent3_creative_v2", p3, preferred="gemini", country=clean_country)
+
+        update_status(84, "Auditing social sentiment & creator roster...")
         e4 = get_or_generate_text_element(company, "agent4_social_v2", p4, preferred="gemini", use_search=True, use_url_context=True, country=clean_country)
 
         img_meta = img_banner = img_hook_frame = None
         if GENERATE_IMAGES_DEFAULT:
+            update_status(92, "Rendering brand-aligned ad mockups...")
             logo_bytes = brand_logo["bytes"] if brand_logo["ok"] else None
             geo_img_note = f" Market context: {clean_country}." if clean_country else ""
             img_meta = get_or_generate_image_element(company, "meta_ad_1x1_v3", f"Clean 1:1 Meta feed ad for {company}.{geo_img_note} {brand_dna_text} Max 2 clean UI elements.", "1:1", logo_bytes, country=clean_country)
             img_banner = get_or_generate_image_element(company, "banner_ad_16x9_v3", f"Clean 16:9 display banner for {company}.{geo_img_note} {brand_dna_text} Max 2 clean UI elements.", "16:9", logo_bytes, country=clean_country)
             img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9_v3", f"Clean 16:9 4-second video hook opening frame for {company}.{geo_img_note} {brand_dna_text} Max 2 clean UI overlays.", "16:9", logo_bytes, country=clean_country)
 
-        s_seo = extract_composite_score(e1.get("content", ""), 68)
-        s_paid = extract_composite_score(e_paid.get("content", ""), 61)
-        s_pri = extract_composite_score(e2.get("content", ""), 62)
-        s_soc = extract_composite_score(e4.get("content", ""), 65)
+        update_status(100, "Audit complete.")
+    finally:
+        progress_slot.empty()
+        bar_slot.empty()
 
-        geo_suffix = f" in {clean_country}" if clean_country else ""
-        return {
-            "company": company,
-            "country": clean_country,
-            "official_url": official_url,
-            "is_showcase": False,
-            "hooks": {
-                "seo": (str(s_seo), f"Fix crawl/schema gaps and target high-intent search & AI answers for {company}{geo_suffix}."),
-                "paid": (str(s_paid), f"Isolate brand vs. non-brand spend and cut funnel drop-offs for {company}{geo_suffix}."),
-                "pricing": (str(s_pri), f"Gate promos, tune shipping thresholds, and lift high-margin mix for {company}{geo_suffix}."),
-                "creative": ("72", f"Test high-contrast hooks and compliant ad copy with logo guardrails for {company}{geo_suffix}."),
-                "social": (str(s_soc), f"Resolve top fulfillment/service friction and activate creators for {company}{geo_suffix}."),
-            },
-            "brand_logo": brand_logo,
-            "brand_intel": brand_dna_text,
-            "e1": e1,
-            "e_paid": e_paid,
-            "e2": e2,
-            "e3": e3,
-            "e4": e4,
-            "img_meta": img_meta,
-            "img_banner": img_banner,
-            "img_hook_frame": img_hook_frame,
-        }
+    s_seo = extract_composite_score(e1.get("content", ""), 68)
+    s_paid = extract_composite_score(e_paid.get("content", ""), 61)
+    s_pri = extract_composite_score(e2.get("content", ""), 62)
+    s_soc = extract_composite_score(e4.get("content", ""), 65)
+
+    geo_suffix = f" in {clean_country}" if clean_country else ""
+    return {
+        "company": company,
+        "country": clean_country,
+        "official_url": official_url,
+        "is_showcase": False,
+        "hooks": {
+            "seo": (str(s_seo), f"Fix crawl/schema gaps and target high-intent search & AI answers for {company}{geo_suffix}."),
+            "paid": (str(s_paid), f"Isolate brand vs. non-brand spend and cut funnel drop-offs for {company}{geo_suffix}."),
+            "pricing": (str(s_pri), f"Gate promos, tune shipping thresholds, and lift high-margin mix for {company}{geo_suffix}."),
+            "creative": ("72", f"Test high-contrast hooks and compliant ad copy with logo guardrails for {company}{geo_suffix}."),
+            "social": (str(s_soc), f"Resolve top fulfillment/service friction and activate creators for {company}{geo_suffix}."),
+        },
+        "brand_logo": brand_logo,
+        "brand_intel": brand_dna_text,
+        "e1": e1,
+        "e_paid": e_paid,
+        "e2": e2,
+        "e3": e3,
+        "e4": e4,
+        "img_meta": img_meta,
+        "img_banner": img_banner,
+        "img_hook_frame": img_hook_frame,
+    }
 
 
 # -----------------------------------------------------------------------------
@@ -1391,6 +1501,9 @@ st.markdown("""
 
 if "selected_bento_v5" not in st.session_state:
     st.session_state["selected_bento_v5"] = None
+
+if "scroll_to_detail_nonce" not in st.session_state:
+    st.session_state["scroll_to_detail_nonce"] = 0
 
 if "last_audit_v5" not in st.session_state:
     st.session_state["last_audit_v5"] = build_sample_showcase("supertails")
@@ -1418,6 +1531,7 @@ with c_run:
         else:
             st.session_state["last_audit_v5"] = run_live_audit(target_company.strip(), target_country.strip())
             st.session_state["selected_bento_v5"] = None
+            st.session_state["scroll_to_detail_nonce"] = 0
             st.rerun()
 
 # Line 2: Sample Presets (Apple secondary outline pill buttons)
@@ -1430,16 +1544,18 @@ with p_b1:
     if st.button("Sample: Supertails", key="preset_supertails", use_container_width=True):
         st.session_state["last_audit_v5"] = build_sample_showcase("supertails")
         st.session_state["selected_bento_v5"] = None
+        st.session_state["scroll_to_detail_nonce"] = 0
         st.rerun()
 with p_b2:
     st.markdown('<span class="sample-btn-hook" style="display:none;"></span>', unsafe_allow_html=True)
     if st.button("Sample: Enphase US", key="preset_enphase_us", use_container_width=True):
         st.session_state["last_audit_v5"] = build_sample_showcase("enphase")
         st.session_state["selected_bento_v5"] = None
+        st.session_state["scroll_to_detail_nonce"] = 0
         st.rerun()
 
 # -----------------------------------------------------------------------------
-# COMPANY HEADER & 5 UNIFORM BENTO TILES
+# COMPANY HEADER & 5 CLICKABLE UNIFORM BENTO TILES
 # -----------------------------------------------------------------------------
 audit = st.session_state.get("last_audit_v5") or build_sample_showcase("supertails")
 company = audit.get("company", "Supertails")
@@ -1476,32 +1592,38 @@ def render_uniform_bento_row(keys: list[str]):
     cols = st.columns(len(keys))
     for i, m_key in enumerate(keys):
         with cols[i]:
-            h_pair = hooks.get(m_key, ("65", "Click Inspect to view module diagnostics."))
+            h_pair = hooks.get(m_key, ("65", "Click card to view module diagnostics."))
             sc_val = str(h_pair[0]) if len(h_pair) > 0 else "65"
             one_line = str(h_pair[1]) if len(h_pair) > 1 else ""
             is_sel = (selected_bento == m_key)
             card_cls = "bento-card bento-card-selected" if is_sel else "bento-card"
             st.markdown(f"""
-            <div class="{card_cls}">
-                <div class="bento-header">
-                    <span class="bento-pillar">{MODULE_LABELS[m_key]}</span>
-                    <span class="bento-score">{sc_val}/100</span>
+            <div class="bento-tile-shell">
+                <div class="{card_cls}">
+                    <div class="bento-header">
+                        <span class="bento-pillar">{MODULE_LABELS[m_key]}</span>
+                        <span class="bento-score">{sc_val}/100</span>
+                    </div>
+                    <div class="bento-oneliner">{one_line}</div>
                 </div>
-                <div class="bento-oneliner">{one_line}</div>
             </div>
             """, unsafe_allow_html=True)
-            btn_txt = "Close" if is_sel else "Inspect"
-            if st.button(btn_txt, key=f"bento_btn_{m_key}", use_container_width=True):
-                st.session_state["selected_bento_v5"] = None if is_sel else m_key
+            if st.button(f"Open {MODULE_LABELS[m_key]}", key=f"bento_card_btn_{m_key}", use_container_width=True):
+                if is_sel:
+                    st.session_state["selected_bento_v5"] = None
+                    st.session_state["scroll_to_detail_nonce"] = 0
+                else:
+                    st.session_state["selected_bento_v5"] = m_key
+                    st.session_state["scroll_to_detail_nonce"] = time.time_ns()
                 st.rerun()
 
 
 render_uniform_bento_row(["seo", "paid", "pricing"])
-st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 render_uniform_bento_row(["creative", "social"])
 
 # -----------------------------------------------------------------------------
-# DETAIL SECTION (COLLAPSED BY DEFAULT ON LOAD; OPENS WHEN INSPECTED)
+# DETAIL SECTION (WITH AUTO-SCROLL & COLLAPSE DETAILS ACTION)
 # -----------------------------------------------------------------------------
 key_lookup = {
     "seo": "e1",
@@ -1512,46 +1634,73 @@ key_lookup = {
 }
 
 if selected_bento in key_lookup:
+    st.markdown('<div id="detail-section-anchor"></div>', unsafe_allow_html=True)
     st.markdown("---")
+
+    scroll_nonce = st.session_state.get("scroll_to_detail_nonce", 0)
+    if scroll_nonce:
+        components.html(f"""
+        <script>
+        (function() {{
+            const nonce = {int(scroll_nonce)};
+            const doc = window.parent && window.parent.document ? window.parent.document : document;
+            const target = doc.getElementById("detail-section-anchor");
+            if (target) {{
+                target.scrollIntoView({{ behavior: "smooth", block: "start" }});
+            }}
+        }})();
+        </script>
+        """, height=0)
+        st.session_state["scroll_to_detail_nonce"] = 0
+
     item = audit.get(key_lookup[selected_bento])
     sel_score = hooks.get(selected_bento, ("65", ""))[0]
-    with st.expander(f"{MODULE_FULL_TITLES[selected_bento]}  ({sel_score}/100)", expanded=True):
-        if not item or not item.get("ok"):
-            st.error(item.get("error", "Module unavailable.") if item else "Module unavailable.")
-        else:
-            st.caption(f"{item.get('engine', '')}  •  {item.get('age', '')}")
 
-            if selected_bento == "creative" and audit.get("brand_intel"):
-                st.markdown("### Brand Design Language & Creative Baseline")
-                st.markdown(audit["brand_intel"])
-                q = quote_plus(company)
-                reg = resolve_region_code(country_val)
-                meta_country_param = f"&country={reg}" if reg != "ALL" else ""
-                google_region_param = f"®ion={reg}" if reg != "ALL" else ""
-                st.markdown(
-                    f"[Meta Ad Library ↗](https://www.facebook.com/ads/library/?active_status=active&ad_type=all{meta_country_param}&q={q}&search_type=keyword_unordered)  •  "
-                    f"[Google Ads Transparency ↗](https://adstransparency.google.com/?domain={q}{google_region_param})"
-                )
-                st.markdown("### Next-Gen Ad Copy & Hooks")
+    d_left, d_right = st.columns([3.6, 1.2], vertical_alignment="center")
+    with d_left:
+        st.markdown(f"### {MODULE_FULL_TITLES[selected_bento]} ({sel_score}/100)")
+    with d_right:
+        st.markdown('<span class="collapse-btn-hook" style="display:none;"></span>', unsafe_allow_html=True)
+        if st.button("Collapse Details", key="collapse_detail_btn", use_container_width=True):
+            st.session_state["selected_bento_v5"] = None
+            st.rerun()
 
-            parts = item["content"].split("---DEEP_DIVE---")
-            st.markdown(parts[0].strip())
-            if len(parts) > 1 and parts[1].strip():
-                with st.expander(MODULE_DEEP_TITLES[selected_bento], expanded=False):
-                    st.markdown(parts[1].strip())
+    if not item or not item.get("ok"):
+        st.error(item.get("error", "Module unavailable.") if item else "Module unavailable.")
+    else:
+        st.caption(f"{item.get('engine', '')}  •  {item.get('age', '')}")
 
-            if selected_bento == "creative" and GENERATE_IMAGES_DEFAULT:
-                imgs = [
-                    ("Meta Feed Ad (1:1)", audit.get("img_meta")),
-                    ("Display Banner (16:9)", audit.get("img_banner")),
-                    ("4-Second Video Hook Keyframe (16:9)", audit.get("img_hook_frame")),
-                ]
-                ready_imgs = [(lbl, im) for lbl, im in imgs if im and im.get("ok") and im.get("bytes")]
-                if ready_imgs:
-                    st.markdown("---")
-                    st.markdown("### Generated Visual Creatives")
-                    for lbl, im in ready_imgs:
-                        st.markdown(f"**{lbl}**")
-                        st.image(im["bytes"], use_container_width=True)
+        if selected_bento == "creative" and audit.get("brand_intel"):
+            st.markdown("### Brand Design Language & Creative Baseline")
+            st.markdown(audit["brand_intel"])
+            q = quote_plus(company)
+            reg = resolve_region_code(country_val)
+            meta_country_param = f"&country={reg}" if reg != "ALL" else ""
+            google_region_param = f"®ion={reg}" if reg != "ALL" else ""
+            st.markdown(
+                f"[Meta Ad Library ↗](https://www.facebook.com/ads/library/?active_status=active&ad_type=all{meta_country_param}&q={q}&search_type=keyword_unordered)  •  "
+                f"[Google Ads Transparency ↗](https://adstransparency.google.com/?domain={q}{google_region_param})"
+            )
+            st.markdown("### Next-Gen Ad Copy & Hooks")
 
-            st.markdown(f'<div class="gov-note">{MODULE_GOV[selected_bento]}</div>', unsafe_allow_html=True)
+        parts = item["content"].split("---DEEP_DIVE---")
+        st.markdown(parts[0].strip())
+        if len(parts) > 1 and parts[1].strip():
+            with st.expander(MODULE_DEEP_TITLES[selected_bento], expanded=False):
+                st.markdown(parts[1].strip())
+
+        if selected_bento == "creative" and GENERATE_IMAGES_DEFAULT:
+            imgs = [
+                ("Meta Feed Ad (1:1)", audit.get("img_meta")),
+                ("Display Banner (16:9)", audit.get("img_banner")),
+                ("4-Second Video Hook Keyframe (16:9)", audit.get("img_hook_frame")),
+            ]
+            ready_imgs = [(lbl, im) for lbl, im in imgs if im and im.get("ok") and im.get("bytes")]
+            if ready_imgs:
+                st.markdown("---")
+                st.markdown("### Generated Visual Creatives")
+                for lbl, im in ready_imgs:
+                    st.markdown(f"**{lbl}**")
+                    st.image(im["bytes"], use_container_width=True)
+
+        st.markdown(f'<div class="gov-note">{MODULE_GOV[selected_bento]}</div>', unsafe_allow_html=True)
