@@ -45,6 +45,44 @@ BACKEND_FORCE_REFRESH = _get_secret("FORCE_REFRESH", "false").lower() in ("1", "
 GENERATE_IMAGES_DEFAULT = _get_secret("GENERATE_IMAGES", "true").lower() in ("1", "true", "yes")
 
 # -----------------------------------------------------------------------------
+# COUNTRY CODE HELPER FOR AD TRANSPARENCY LINKS
+# -----------------------------------------------------------------------------
+COUNTRY_REGION_MAP = {
+    "united states": "US",
+    "usa": "US",
+    "us": "US",
+    "india": "IN",
+    "brazil": "BR",
+    "brasil": "BR",
+    "united kingdom": "GB",
+    "uk": "GB",
+    "germany": "DE",
+    "france": "FR",
+    "canada": "CA",
+    "australia": "AU",
+    "japan": "JP",
+    "mexico": "MX",
+    "spain": "ES",
+    "italy": "IT",
+    "netherlands": "NL",
+    "singapore": "SG",
+    "uae": "AE",
+    "united arab emirates": "AE",
+}
+
+
+def resolve_region_code(country: str) -> str:
+    cleaned = (country or "").strip().lower()
+    if not cleaned:
+        return "ALL"
+    if cleaned in COUNTRY_REGION_MAP:
+        return COUNTRY_REGION_MAP[cleaned]
+    if len(cleaned) == 2 and cleaned.isalpha():
+        return cleaned.upper()
+    return "ALL"
+
+
+# -----------------------------------------------------------------------------
 # UNIFIED TYPOGRAPHY, APPLE PILL BUTTONS & UNIFORM BENTO CSS
 # -----------------------------------------------------------------------------
 st.markdown("""
@@ -334,186 +372,188 @@ MODULE_GOV = {
 }
 
 
-def _sample_item(content: str, engine: str = "Curated Snapshot"):
-    return {"ok": True, "content": content, "engine": engine, "from_cache": True, "age": "curated", "error": None}
+def _sample_item(content: str, engine: str = "Curated Snapshot (US)"):
+    return {"ok": True, "content": content, "engine": engine, "from_cache": True, "age": "curated US", "error": None}
 
 
 def build_sample_showcase(brand_key: str) -> dict:
     if brand_key == "enphase":
         return {
             "company": "Enphase Energy",
+            "country": "United States",
             "official_url": "https://enphase.com",
             "is_showcase": True,
             "hooks": {
-                "seo": ("67", "Add concise homeowner payback & outage Q&As to win AI answer blocks."),
-                "paid": ("63", "Separate homeowner vs. installer funnels and simplify mobile quote steps."),
-                "pricing": ("64", "Bundle solar, battery & smart load tiers to lift storage attach and margin."),
-                "creative": ("71", "Lead with grid-outage resilience and home energy control over raw specs."),
-                "social": ("68", "Tighten installer callback SLAs and milestone updates to protect trust."),
+                "seo": ("67", "Add US net-metering (NEM 3.0) & backup Q&As to win US AI answer blocks."),
+                "paid": ("63", "Separate US homeowner vs. installer funnels and simplify mobile quote steps."),
+                "pricing": ("64", "Bundle IQ8 + IQ Battery + smart load tiers to lift US storage attach and margin."),
+                "creative": ("71", "Lead with US grid-outage resilience and bill control over raw spec sheets."),
+                "social": ("68", "Tighten US installer callback SLAs and PTO milestone updates to protect trust."),
             },
             "brand_logo": {"ok": False, "bytes": None, "source": None, "from_cache": False},
             "brand_intel": (
-                "- **Visual Design Language:** Crisp white surfaces, electric blue and emerald accents, clean technical cards, and bright home photography.\n"
-                "- **Meta & Social Ad Patterns:** Homeowner energy independence stories, outage protection hooks, and installer co-marketing.\n"
-                "- **Google Search & Shopping Messaging:** Microinverter reliability, battery storage readiness, and certified installer discovery.\n"
-                "- **Core Audience & Trust Triggers:** Homeowners and certified solar installers anchored by reliability and app monitoring.\n\n"
+                "- **Visual Design Language:** Crisp white surfaces, electric blue and emerald accents, clean technical cards, and bright US residential photography.\n"
+                "- **Meta & Social Ad Patterns:** US homeowner energy independence stories, outage protection hooks, and certified installer co-marketing.\n"
+                "- **Google Search & Shopping Messaging:** US microinverter reliability, battery storage readiness, and local installer discovery.\n"
+                "- **Core Audience & Trust Triggers:** US homeowners and certified solar installers anchored by reliability and Enlighten app monitoring.\n\n"
                 "| Channel / Format | Current Baseline Pattern | Creative Fatigue / Gap | Next-Gen Hook Angle |\n"
                 "| --- | --- | --- | --- |\n"
-                "| Paid Social & Video | Hardware & solar overview ads | Spec-heavy copy under-indexes on outage peace of mind | 4s blackout-to-backup homeowner hook |\n"
-                "| Search & Demand Gen | Broad solar & microinverter terms | Blended homeowner vs. installer intent | Segmented savings & certified installer proof |\n"
-                "| Web & Lead Funnels | Multi-step sizing & quote handoff | Drop-off prior to local quote request | Quick bill-offset & battery-readiness check |"
+                "| Paid Social & Video | US hardware & solar overview ads | Spec-heavy copy under-indexes on outage peace of mind | 4s blackout-to-backup US homeowner hook |\n"
+                "| Search & Demand Gen | Broad US solar & microinverter terms | Blended homeowner vs. installer intent | Segmented US savings & certified installer proof |\n"
+                "| Web & Lead Funnels | Multi-step US sizing & quote handoff | Drop-off prior to local US quote request | Quick bill-offset & battery-readiness check |"
             ),
             "e1": _sample_item(
-                "| Search Pillar | Score /100 | Observable Diagnostic Signal | Primary Gap |\n"
+                "| Search Pillar | Score /100 | Observable Diagnostic Signal (US) | Primary Gap |\n"
                 "| --- | --- | --- | --- |\n"
-                "| 1. Technical & Programmatic SEO | 72 | Strong product/solution depth and regional pages | Faceted comparison indexation & page speed hygiene |\n"
-                "| 2. AEO | 66 | Solid technical definitions; room for concise answer blocks | Direct Q&A blocks for net metering & battery sizing |\n"
-                "| 3. GEO | 64 | High brand awareness; mixed share in homeowner TCO prompts | Clear lifecycle & storage TCO citation assets |\n"
-                "| 4. Entity & Local Schema | 69 | Clear Organization & Product graph; regional variance | Consistent local/service schema & regional proof |\n"
-                "| 5. Off-Site Consensus & Digital PR | 65 | Active homeowner forums and press coverage | Structured review & installer proof aggregation |\n\n"
-                "- Build comparison hubs for microinverter vs. string inverter reliability and payback.\n"
-                "- Add concise FAQ blocks on battery backup sizing and utility tariff changes.\n"
-                "- Strengthen regional homeowner proof and installer directory pages.\n"
-                "- Publish clear guides on whole-home energy management and EV charging.\n"
+                "| 1. Technical & Programmatic SEO | 72 | Strong US product/solution depth and state/city pages | Faceted comparison indexation & page speed hygiene |\n"
+                "| 2. AEO | 66 | Solid technical definitions; room for concise US answer blocks | Direct Q&A blocks for NEM 3.0 / utility tariffs & battery sizing |\n"
+                "| 3. GEO | 64 | High US brand awareness; mixed share in homeowner TCO prompts | Clear US lifecycle & storage TCO citation assets |\n"
+                "| 4. Entity & Local Schema | 69 | Clear Organization & Product graph; state/installer variance | Consistent local/service schema & US regional proof |\n"
+                "| 5. Off-Site Consensus & Digital PR | 65 | Active US homeowner forums and solar press coverage | Structured US review & installer proof aggregation |\n\n"
+                "- Build US comparison hubs for microinverter vs. string inverter reliability and payback.\n"
+                "- Add concise FAQ blocks on US battery backup sizing and utility tariff shifts.\n"
+                "- Strengthen US state/regional homeowner proof and installer directory pages.\n"
+                "- Publish clear guides on US whole-home energy management and EV charging.\n"
                 "---DEEP_DIVE---\n"
-                "| High-Intent Buyer Prompt | Current AI Winner | Enphase Energy Vulnerability | Asset Needed to Win |\n"
+                "| High-Intent US Buyer Prompt | Current AI Winner | Enphase US Vulnerability | Asset Needed to Win |\n"
                 "| --- | --- | --- | --- |\n"
-                "| Best home solar microinverter & battery setup | Solar review aggregators | Technical specs outweigh plain-English outcomes | Side-by-side reliability & backup guide |\n"
-                "| How much does solar + battery backup save | Utility & solar calculators | Regional tariff rules vary across markets | Payback & tariff-impact explainer |\n"
-                "| Reliable solar installer near me | Directories & local listings | Lead handoff friction between brand & partner | Verified installer checklist & proof hub |\n"
-                "| Microinverter vs string inverter maintenance | Owner forums | Scattered anecdotal comparisons | Transparent lifecycle & warranty table |\n\n"
-                "### Execution Plan\n"
-                "- **[AEO] Problem -> Fix:** Technical copy buries direct answers -> Add concise answer-first blocks on sizing and FAQ pages.\n"
-                "- **[GEO] Problem -> Fix:** Forums shape TCO answers -> Publish clear reliability and lifecycle TCO comparisons.\n"
-                "- **[Schema] Problem -> Fix:** Uneven markup across regional templates -> Standardize Product, FAQPage, and Organization schema.\n"
-                "- **[SEO] Problem -> Fix:** Thin regional pages compete on broad terms -> Add localized case studies and incentive context.\n"
-                "- **[Off-Site] Problem -> Fix:** Positive app stories stay scattered -> Syndicate verified homeowner stories and proof."
+                "| Best home solar microinverter & battery setup US | US solar review aggregators | Technical specs outweigh plain-English US outcomes | Side-by-side US reliability & backup guide |\n"
+                "| How much does solar + battery backup save in US | US utility & solar calculators | State utility tariff rules vary across US states | US payback & tariff-impact explainer |\n"
+                "| Reliable solar installer near me US | US directories & local listings | Lead handoff friction between brand & US partner | Verified US installer checklist & proof hub |\n"
+                "| Microinverter vs string inverter maintenance US | US owner forums | Scattered anecdotal comparisons | Transparent lifecycle & warranty table |\n\n"
+                "### US Execution Plan\n"
+                "- **[AEO] Problem -> Fix:** Technical copy buries direct US answers -> Add concise answer-first blocks on sizing and FAQ pages.\n"
+                "- **[GEO] Problem -> Fix:** Forums shape US TCO answers -> Publish clear reliability and lifecycle TCO comparisons.\n"
+                "- **[Schema] Problem -> Fix:** Uneven markup across US regional templates -> Standardize Product, FAQPage, and Organization schema.\n"
+                "- **[SEO] Problem -> Fix:** Thin US state pages compete on broad terms -> Add localized US case studies and utility context.\n"
+                "- **[Off-Site] Problem -> Fix:** Positive Enlighten stories stay scattered -> Syndicate verified US homeowner stories and proof."
             ),
             "e_paid": _sample_item(
-                "| Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal | Primary Leakage |\n"
+                "| Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal (US) | Primary Leakage |\n"
                 "| --- | --- | --- | --- |\n"
-                "| 1. Non-Brand Search & PMax Efficiency | 65 | Strong demand capture alongside broad hardware queries | Broad non-brand clicks before readiness check |\n"
-                "| 2. Paid Social Acquisition & Creative Fatigue | 61 | Clear visual assets; repeated hardware framing | Prospecting over-indexes on specs vs. outage/bill hooks |\n"
-                "| 3. Landing Page & Product-to-Cart CRO | 62 | Multi-step path to qualified lead/quote | Friction before homeowners see tailored system fit |\n"
-                "| 4. Checkout, Booking & Post-Click Friction | 64 | Partner routing in place; follow-up speed varies | Delayed installer contact erodes lead conversion |\n\n"
-                "- Separate homeowner lead-gen from installer-focused campaigns.\n"
-                "- Lead social hooks with outage protection and monthly bill control.\n"
-                "- Use 3 quick qualification inputs before quote capture.\n"
+                "| 1. Non-Brand Search & PMax Efficiency | 65 | Strong US demand capture alongside broad hardware queries | Broad non-brand clicks before readiness check |\n"
+                "| 2. Paid Social Acquisition & Creative Fatigue | 61 | Clear visual assets; repeated hardware framing | US prospecting over-indexes on specs vs. outage/bill hooks |\n"
+                "| 3. Landing Page & Product-to-Cart CRO | 62 | Multi-step path to qualified US lead/quote | Friction before US homeowners see tailored system fit |\n"
+                "| 4. Checkout, Booking & Post-Click Friction | 64 | US partner routing in place; follow-up speed varies | Delayed US installer contact erodes lead conversion |\n\n"
+                "- Separate US homeowner lead-gen from installer-focused campaigns.\n"
+                "- Lead US social hooks with outage protection and monthly bill control.\n"
+                "- Use 3 quick qualification inputs before US quote capture.\n"
                 "- Track qualified-lead-to-proposal rate alongside form fills.\n"
                 "---DEEP_DIVE---\n"
-                "### Paid & Funnel Fixes\n"
-                "- **[Search/PMax] Problem -> Fix:** Blended brand and non-brand signals blur efficiency -> Separate brand defense from storage/solar capture.\n"
-                "- **[Paid Social] Problem -> Fix:** Hardware creatives fatigue homeowners -> Test outage-resilience and bill-predictability hooks.\n"
-                "- **[Landing Page] Problem -> Fix:** Long forms hurt mobile completion -> Show quick system fit estimates before contact capture.\n"
-                "- **[Post-Click] Problem -> Fix:** Slow partner handoffs lose high-intent leads -> Enforce instant confirmation and SLA-tracked routing.\n\n"
-                "### Experiment Backlog\n"
+                "### US Paid & Funnel Fixes\n"
+                "- **[Search/PMax] Problem -> Fix:** Blended brand and non-brand signals blur US efficiency -> Separate brand defense from storage/solar capture.\n"
+                "- **[Paid Social] Problem -> Fix:** Hardware creatives fatigue US homeowners -> Test outage-resilience and bill-predictability hooks.\n"
+                "- **[Landing Page] Problem -> Fix:** Long forms hurt US mobile completion -> Show quick system fit estimates before contact capture.\n"
+                "- **[Post-Click] Problem -> Fix:** Slow US partner handoffs lose high-intent leads -> Enforce instant confirmation and SLA-tracked routing.\n\n"
+                "### US Experiment Backlog\n"
                 "| Test Hypothesis | Primary Metric | Guardrail Metric | Expected Impact |\n"
                 "| --- | --- | --- | --- |\n"
-                "| 3-step solar + battery estimator on mobile LPs | Qualified Lead CVR | Cost per Qualified Lead | +15-22% mobile form completion |\n"
-                "| Outage/backup hook vs. hardware hook on Meta/YouTube | Thumbstop & CTR | Lead Quality Score | +18-25% engaged click rate |\n"
-                "| Instant next-step timeline after quote submission | Proposal Booking Rate | Installer SLA Breach Rate | +10-16% speed-to-contact lift |\n"
-                "| Dedicated storage/backup search ad groups | Storage Lead Share | Blended Non-Brand CPA | +12-18% higher-AOV inquiry mix |"
+                "| 3-step solar + battery estimator on US mobile LPs | Qualified Lead CVR | Cost per Qualified Lead (USD) | +15-22% mobile form completion |\n"
+                "| Outage/backup hook vs. hardware hook on US Meta/YouTube | Thumbstop & CTR | Lead Quality Score | +18-25% engaged click rate |\n"
+                "| Instant next-step timeline after US quote submission | Proposal Booking Rate | Installer SLA Breach Rate | +10-16% speed-to-contact lift |\n"
+                "| Dedicated US storage/backup search ad groups | Storage Lead Share | Blended Non-Brand CPA (USD) | +12-18% higher-AOV inquiry mix |"
             ),
             "e2": _sample_item(
-                "**Current Pricing Strategy:** Enphase pairs premium IQ microinverter and battery hardware pricing with multi-tier installer commercial programs, volume incentives, and ongoing monitoring/energy-management value.\n\n"
-                "| Pricing & Economics Pillar | Score /100 | Observable Pricing Signal | Margin / LTV Leakage |\n"
+                "**Current Pricing Strategy:** In the US, Enphase pairs premium IQ8 microinverter and IQ Battery hardware pricing with multi-tier US installer commercial programs, volume incentives, and ongoing monitoring/energy-management value.\n\n"
+                "| Pricing & Economics Pillar | Score /100 | Observable US Pricing Signal | Margin / LTV Leakage |\n"
                 "| --- | --- | --- | --- |\n"
-                "| 1. Core SKU & Marketplace Price Positioning | 68 | Premium hardware anchored by reliability & warranty | Price pressure from lower-cost string/hybrid options |\n"
-                "| 2. Shipping, Fee & Basket Threshold Architecture | 62 | Commercial/installer logistics and regional fulfillment | Freight/handling drag on smaller or split orders |\n"
+                "| 1. Core SKU & Marketplace Price Positioning | 68 | Premium US hardware anchored by reliability & warranty | Price pressure from lower-cost US string/hybrid options |\n"
+                "| 2. Shipping, Fee & Basket Threshold Architecture | 62 | US commercial/installer logistics and regional fulfillment | Freight/handling drag on smaller or split US orders |\n"
                 "| 3. Subscription & Repeat-Cohort Monetization | 63 | Ongoing monitoring and energy-management value | Under-monetized post-install upgrade touchpoints |\n"
-                "| 4. Private-Label & High-Margin Service Mix | 64 | Integrated microinverter, battery & smart energy stack | Attach-rate gap between solar core and storage add-ons |\n\n"
-                "- Bundle microinverters, battery storage, and smart controls into clear tiers.\n"
-                "- Weight installer volume rebates toward multi-product attach.\n"
-                "- Standardize transparent commercial/freight terms across order tiers.\n"
-                "- Create clear post-install paths for battery and EV expansion.\n"
+                "| 4. Private-Label & High-Margin Service Mix | 64 | Integrated microinverter, battery & smart energy stack | Attach-rate gap between solar core and US storage add-ons |\n\n"
+                "- Bundle US microinverters, battery storage, and smart controls into clear tiers.\n"
+                "- Weight US installer volume rebates toward multi-product attach.\n"
+                "- Standardize transparent US commercial/freight terms across order tiers.\n"
+                "- Create clear post-install paths for US battery and EV expansion.\n"
                 "---DEEP_DIVE---\n"
-                "### Tier Optimization & Margin Plan\n"
-                "- **[Package Tiers] Problem -> Fix:** A la carte quotes obscure total value -> Offer Good/Better/Best solar + storage + control tiers.\n"
-                "- **[Partner Tiers] Problem -> Fix:** Flat volume discounts miss attach incentives -> Tie higher rebates to battery and smart-panel attach.\n"
-                "- **[Freight/Fees] Problem -> Fix:** Split order sizes add logistics overhead -> Incentivize consolidated batch ordering thresholds.\n"
-                "- **[Expansion LTV] Problem -> Fix:** Post-install engagement slows after setup -> Surface timely storage/EV expansion offers via milestones.\n\n"
-                "### Unit Economics & Pricing Impact Matrix\n"
-                "| Pricing Lever | Target Cohort | Mechanism | Margin / LTV Lift | Volume / Churn Guardrail |\n"
+                "### US Tier Optimization & Margin Plan\n"
+                "- **[Package Tiers] Problem -> Fix:** A la carte US quotes obscure total value -> Offer Good/Better/Best solar + storage + control tiers.\n"
+                "- **[Partner Tiers] Problem -> Fix:** Flat volume discounts miss US attach incentives -> Tie higher rebates to battery and smart-panel attach.\n"
+                "- **[Freight/Fees] Problem -> Fix:** Split US order sizes add logistics overhead -> Incentivize consolidated batch ordering thresholds.\n"
+                "- **[Expansion LTV] Problem -> Fix:** Post-install engagement slows after US setup -> Surface timely storage/EV expansion offers via milestones.\n\n"
+                "### US Unit Economics & Pricing Impact Matrix\n"
+                "| Pricing Lever | Target US Cohort | Mechanism | Margin / LTV Lift | Volume / Churn Guardrail |\n"
                 "| --- | --- | --- | --- | --- |\n"
-                "| Solar + Battery Tiered Bundles | New residential buyers | Clear package tiers with backup options | +200-280 bps blended GM | Keep entry solar option for budget buyers |\n"
-                "| Attach-Weighted Partner Tiers | Certified installers | Higher rebates on bundled storage/EMS | +12-18% storage attach rate | Protect installer margin on competitive bids |\n"
-                "| Consolidated Batch Ordering | Regional partners/orders | Threshold-based fulfillment terms | -100-140 bps freight drag | Avoid order barriers on small pilots |\n"
-                "| Post-Install Expansion Offers | Existing app users | Milestone-triggered storage/EV upgrades | +15-22% expansion LTV | Keep prompts helpful, never intrusive |"
+                "| Solar + Battery Tiered Bundles | US residential buyers | Clear package tiers with backup options | +200-280 bps blended GM | Keep entry solar option for budget buyers |\n"
+                "| Attach-Weighted Partner Tiers | US certified installers | Higher rebates on bundled storage/EMS | +12-18% US storage attach rate | Protect installer margin on competitive bids |\n"
+                "| Consolidated Batch Ordering | US regional partners/orders | Threshold-based fulfillment terms | -100-140 bps freight drag | Avoid order barriers on small pilots |\n"
+                "| Post-Install Expansion Offers | US Enlighten app users | Milestone-triggered storage/EV upgrades | +15-22% expansion LTV | Keep prompts helpful, never intrusive |"
             ),
             "e3": _sample_item(
-                "1. **Google Search RSA Pack**\n"
+                "1. **Google Search RSA Pack (US)**\n"
                 "- Headline 1: Smart Solar & Battery Systems\n"
                 "- Headline 2: Reliable Power When Grid Drops\n"
-                "- Headline 3: Connect With Certified Pros\n"
-                "- Description 1: Protect your home with reliable solar and battery storage. Get a tailored plan.\n"
+                "- Headline 3: Connect With Certified US Pros\n"
+                "- Description 1: Protect your US home with reliable solar and battery storage. Get a tailored plan.\n"
                 "- Description 2: Monitor energy in real time and cut grid reliance. Request a home assessment.\n\n"
-                "2. **Meta Feed Ad**\n"
-                "- Primary Text: Keep lights, Wi-Fi, and essentials running smoothly with smart solar + battery storage.\n"
+                "2. **Meta Feed Ad (US)**\n"
+                "- Primary Text: Keep lights, Wi-Fi, and essentials running smoothly with smart US solar + battery storage.\n"
                 "- Headline: Smart Solar + Backup Made Simple\n"
                 "- CTA: Learn More\n\n"
-                "3. **4-Second Video Hook**\n"
-                "- Visual Scene: Home lights stay on while street goes dark; homeowner checks phone app.\n"
+                "3. **4-Second Video Hook (US)**\n"
+                "- Visual Scene: US home lights stay on while street goes dark; homeowner checks phone app.\n"
                 "- Voiceover/Text Overlay: Outage outside. Power inside. (6 words)\n"
                 "---DEEP_DIVE---\n"
-                "### Creative Rationale\n"
-                "- **[Meta/Video] Problem -> Fix:** Spec-heavy visuals feel distant to homeowners -> Lead with blackout protection and app clarity in 4 seconds.\n"
-                "- **[Search RSA] Problem -> Fix:** Broad headlines dilute intent -> Pair clear backup/savings outcomes with assessment CTAs.\n"
-                "- **[Funnel Match] Problem -> Fix:** Ad-to-page messaging gap -> Carry backup and savings framing directly onto the landing hero.\n\n"
-                "### Creative A/B Testing Matrix\n"
-                "| Ad Variant | Hook / Angle | Target Persona | Primary KPI |\n"
+                "### US Creative Rationale\n"
+                "- **[Meta/Video] Problem -> Fix:** Spec-heavy visuals feel distant to US homeowners -> Lead with blackout protection and app clarity in 4 seconds.\n"
+                "- **[Search RSA] Problem -> Fix:** Broad headlines dilute US intent -> Pair clear backup/savings outcomes with assessment CTAs.\n"
+                "- **[Funnel Match] Problem -> Fix:** Ad-to-page messaging gap -> Carry backup and savings framing directly onto the US landing hero.\n\n"
+                "### US Creative A/B Testing Matrix\n"
+                "| Ad Variant | Hook / Angle | Target US Persona | Primary KPI |\n"
                 "| --- | --- | --- | --- |\n"
-                "| Variant A (Outage Hook) | Seamless backup during grid dips | Outage-prone homeowners | Qualified Lead CVR |\n"
-                "| Variant B (Bill Control) | Predictable energy & self-use | High-bill / EV homeowners | Cost per Qualified Lead |\n"
-                "| Variant C (App Telemetry) | Real-time visibility & control | Tech-forward homeowners | Thumbstop & LP CTR |\n"
-                "| Variant D (Installer Trust) | Certified local execution & warranty | First-time solar buyers | Proposal Completion Rate |"
+                "| Variant A (Outage Hook) | Seamless backup during US grid dips | Outage-prone US homeowners | Qualified Lead CVR |\n"
+                "| Variant B (Bill Control) | Predictable energy & self-use | High-bill / EV US homeowners | Cost per Qualified Lead (USD) |\n"
+                "| Variant C (App Telemetry) | Real-time visibility & control | Tech-forward US homeowners | Thumbstop & LP CTR |\n"
+                "| Variant D (Installer Trust) | Certified local US execution & warranty | First-time US solar buyers | Proposal Completion Rate |"
             ),
             "e4": _sample_item(
-                "**Current Brand Sentiment Archetype:** Enphase earns strong engineering trust and app loyalty among homeowners, while reputation risks center on installer execution speed and support follow-through.\n\n"
-                "| Reputation & Listening Pillar | Score /100 | Observable Social / Review Signal | Primary Trust Risk |\n"
+                "**Current Brand Sentiment Archetype:** In the US, Enphase earns strong engineering trust and Enlighten app loyalty among homeowners, while reputation risks center on installer execution speed and support follow-through.\n\n"
+                "| Reputation & Listening Pillar | Score /100 | Observable US Social / Review Signal | Primary Trust Risk |\n"
                 "| --- | --- | --- | --- |\n"
-                "| 1. Fulfillment & Post-Purchase Sentiment | 66 | Setup timelines depend on local installers | Partner delays reflecting on brand |\n"
-                "| 2. Clinical & Product Trust Authority | 74 | Strong reliability and monitoring UX feedback | Isolated RMA/firmware threads |\n"
-                "| 3. Review Ecosystem Parity | 65 | High product affinity vs. mixed local reviews | Regional sentiment uneven across channels |\n"
-                "| 4. Community Advocacy & Earned Momentum | 69 | Active owner discussions sharing performance | Unanswered forum threads lingering |\n\n"
-                "| Polarity | Platform & Context | Representative Customer Feedback | Core Theme |\n"
+                "| 1. Fulfillment & Post-Purchase Sentiment | 66 | US setup timelines depend on local installers | US partner delays reflecting on brand |\n"
+                "| 2. Clinical & Product Trust Authority | 74 | Strong US reliability and monitoring UX feedback | Isolated RMA/firmware threads |\n"
+                "| 3. Review Ecosystem Parity | 65 | High product affinity vs. mixed local US reviews | State-level sentiment uneven across channels |\n"
+                "| 4. Community Advocacy & Earned Momentum | 69 | Active US owner discussions sharing performance | Unanswered forum threads lingering |\n\n"
+                "| Polarity | US Platform & Context | Representative Customer Feedback | Core Theme |\n"
                 "| --- | --- | --- | --- |\n"
-                "| Positive | Solar Owner Forums | Per-panel monitoring makes spotting any issue quick and reliable. | App & Telemetry Value |\n"
-                "| Positive | Homeowner Reviews | System runs steadily with clear daily generation visibility. | Hardware Reliability |\n"
-                "| Positive | Community Threads | Battery backup kept essentials running through an outage. | Backup Peace of Mind |\n"
-                "| Negative | Installer / Review Threads | Waited too long for local installer callback after inquiry. | Installer Speed-to-Lead |\n"
-                "| Negative | Support / Forum Threads | Needed multiple follow-ups to close commissioning check. | Support Resolution SLA |\n"
-                "| Negative | Regional Discussions | Net-metering rules felt unclear during initial pitch. | Expectation Clarity |\n\n"
+                "| Positive | US Solar Owner Forums | Per-panel monitoring makes spotting any issue quick and reliable. | App & Telemetry Value |\n"
+                "| Positive | US Homeowner Reviews | System runs steadily with clear daily generation visibility. | Hardware Reliability |\n"
+                "| Positive | US Community Threads | Battery backup kept essentials running through an outage. | Backup Peace of Mind |\n"
+                "| Negative | US Installer / Review Threads | Waited too long for local installer callback after inquiry. | Installer Speed-to-Lead |\n"
+                "| Negative | US Support / Forum Threads | Needed multiple follow-ups to close commissioning check. | Support Resolution SLA |\n"
+                "| Negative | US Regional Discussions | Utility export/tariff rules felt unclear during initial pitch. | Expectation Clarity |\n\n"
                 "---DEEP_DIVE---\n"
-                "### Rapid Triage Plan\n"
-                "- **[Installer SLA] Problem -> Fix:** Slow partner callbacks hurt perception -> Tighten routing SLAs and escalate stalled leads quickly.\n"
-                "- **[Forum Triage] Problem -> Fix:** Open technical threads shape research -> Assign dedicated technical specialists with clear escalations.\n"
-                "- **[Expectations] Problem -> Fix:** Permitting/utility steps surprise buyers -> Share clear milestone timelines upfront.\n"
-                "- **[Advocacy] Problem -> Fix:** Satisfied owners post less often -> Prompt completed installs to share verified stories.\n\n"
-                "### Social Listening & Escalation SLA Matrix\n"
-                "| Listening Cluster & Channels | Trigger Signal | Severity & SLA | Owner & Resolution Play |\n"
+                "### US Rapid Triage Plan\n"
+                "- **[Installer SLA] Problem -> Fix:** Slow US partner callbacks hurt perception -> Tighten routing SLAs and escalate stalled leads quickly.\n"
+                "- **[Forum Triage] Problem -> Fix:** Open US technical threads shape research -> Assign dedicated technical specialists with clear escalations.\n"
+                "- **[Expectations] Problem -> Fix:** US permitting/utility steps surprise buyers -> Share clear milestone timelines upfront.\n"
+                "- **[Advocacy] Problem -> Fix:** Satisfied US owners post less often -> Prompt completed installs to share verified stories.\n\n"
+                "### US Social Listening & Escalation SLA Matrix\n"
+                "| Listening Cluster & US Channels | Trigger Signal | Severity & SLA | Owner & Resolution Play |\n"
                 "| --- | --- | --- | --- |\n"
-                "| Outage / Fault Mentions | System fault or backup claims | High (<2h triage) | Technical Support + Field Ops check |\n"
-                "| Installer Delay Complaints | Slow install or callback threads | Medium (<24h response) | Partner Ops + CX escalates |\n"
-                "| App & Monitoring Questions | Setup, login, or telemetry queries | Low-Med (<12h response) | Digital Care shares guided fix |\n"
-                "| Creator & Press Mentions | Reviews, comparisons, or policy posts | Medium (<24h response) | Brand/Comms logs & responds |\n\n"
-                "### Top 10 Influencers & YouTube Channels for Brand Collaboration\n"
-                "| Rank | Creator / Channel Name | Primary Platform | Category & Audience Fit | Recommended Collab Angle |\n"
+                "| Outage / Fault Mentions (US) | System fault or backup claims | High (<2h triage) | US Technical Support + Field Ops check |\n"
+                "| Installer Delay Complaints (US) | Slow install or callback threads | Medium (<24h response) | US Partner Ops + CX escalates |\n"
+                "| App & Monitoring Questions (US) | Setup, login, or telemetry queries | Low-Med (<12h response) | Digital Care shares guided fix |\n"
+                "| Creator & Press Mentions (US) | Reviews, comparisons, or policy posts | Medium (<24h response) | US Brand/Comms logs & responds |\n\n"
+                "### Top 10 US Influencers & YouTube Channels for Brand Collaboration\n"
+                "| Rank | Creator / Channel Name | Primary Platform | US Category & Audience Fit | Recommended Collab Angle |\n"
                 "| --- | --- | --- | --- | --- |\n"
-                "| 1 | Undecided with Matt Ferrell | YouTube | Clean energy & home tech | Deep dive on microinverters, storage & resilience |\n"
-                "| 2 | Home Solar & DIY Channels | YouTube | Solar homeowners & builders | Real-world performance & monitoring walkthrough |\n"
-                "| 3 | Engineering & Grid Creators | YouTube | Grid & energy transition viewers | Explaining distributed energy & backup design |\n"
-                "| 4 | Smart Home & EV Creators | YouTube & Instagram | EV + home energy owners | Whole-home solar + EV charging daily routine |\n"
-                "| 5 | Personal Finance & Home Creators | YouTube & Instagram | ROI-focused homeowners | Utility bill & payback math breakdown |\n"
-                "| 6 | Sustainable Living Creators | YouTube | Eco-minded home upgraders | Home efficiency & backup readiness tour |\n"
-                "| 7 | Real Estate & Reno Creators | Instagram & YouTube | Home renovators/builders | Planning solar-ready roofs & smart panels |\n"
-                "| 8 | Energy Policy Commentators | YouTube & LinkedIn | Tariff & policy watchers | How tariff shifts affect solar + storage |\n"
-                "| 9 | Consumer Tech Reviewers | YouTube | Smart-device & app reviewers | Hands-on review of monitoring UX & alerts |\n"
-                "| 10 | Local Homeowner Advocates | Instagram & YouTube | Regional community builders | Authentic post-install neighborhood walkthrough |"
+                "| 1 | Undecided with Matt Ferrell | YouTube | US clean energy & home tech | Deep dive on microinverters, storage & resilience |\n"
+                "| 2 | US Home Solar & DIY Channels | YouTube | US solar homeowners & builders | Real-world performance & monitoring walkthrough |\n"
+                "| 3 | US Engineering & Grid Creators | YouTube | US grid & energy transition viewers | Explaining distributed energy & backup design |\n"
+                "| 4 | US Smart Home & EV Creators | YouTube & Instagram | US EV + home energy owners | Whole-home solar + EV charging daily routine |\n"
+                "| 5 | US Personal Finance & Home Creators | YouTube & Instagram | ROI-focused US homeowners | US utility bill & payback math breakdown |\n"
+                "| 6 | US Sustainable Living Creators | YouTube | Eco-minded US home upgraders | Home efficiency & backup readiness tour |\n"
+                "| 7 | US Real Estate & Reno Creators | Instagram & YouTube | US home renovators/builders | Planning solar-ready roofs & smart panels |\n"
+                "| 8 | US Energy Policy Commentators | YouTube & LinkedIn | US tariff & policy watchers | How US tariff/NEM shifts affect solar + storage |\n"
+                "| 9 | US Consumer Tech Reviewers | YouTube | US smart-device & app reviewers | Hands-on review of monitoring UX & alerts |\n"
+                "| 10 | US Local Homeowner Advocates | Instagram & YouTube | US community builders | Authentic post-install neighborhood walkthrough |"
             ),
         }
 
     return {
         "company": "Supertails",
+        "country": "India",
         "official_url": "https://supertails.com",
         "is_showcase": True,
         "hooks": {
@@ -686,24 +726,29 @@ def build_sample_showcase(brand_key: str) -> dict:
 
 
 # -----------------------------------------------------------------------------
-# CACHE HELPERS (48-HOUR TTL)
+# GEO-AWARE CACHE HELPERS (48-HOUR TTL)
 # -----------------------------------------------------------------------------
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.strip().lower()).strip("_") or "default"
 
 
-def _meta_path(company: str, element_key: str) -> str:
-    return os.path.join(CACHE_DIR, f"{_slug(company)}__{_slug(element_key)}.json")
+def _geo_prefix(company: str, country: str = "") -> str:
+    geo_part = _slug(country) if (country or "").strip() else "global"
+    return f"{_slug(company)}__{geo_part}"
 
 
-def _asset_path(company: str, element_key: str, ext: str) -> str:
-    return os.path.join(CACHE_DIR, f"{_slug(company)}__{_slug(element_key)}.{ext}")
+def _meta_path(company: str, element_key: str, country: str = "") -> str:
+    return os.path.join(CACHE_DIR, f"{_geo_prefix(company, country)}__{_slug(element_key)}.json")
 
 
-def load_cached_element(company: str, element_key: str, asset_ext: str | None = None):
+def _asset_path(company: str, element_key: str, ext: str, country: str = "") -> str:
+    return os.path.join(CACHE_DIR, f"{_geo_prefix(company, country)}__{_slug(element_key)}.{ext}")
+
+
+def load_cached_element(company: str, element_key: str, asset_ext: str | None = None, country: str = ""):
     if BACKEND_FORCE_REFRESH:
         return None
-    meta_file = _meta_path(company, element_key)
+    meta_file = _meta_path(company, element_key, country=country)
     if not os.path.exists(meta_file):
         return None
     try:
@@ -713,7 +758,7 @@ def load_cached_element(company: str, element_key: str, asset_ext: str | None = 
         if (time.time() - saved_at) > TTL_SECONDS:
             return None
         if asset_ext:
-            asset_file = _asset_path(company, element_key, asset_ext)
+            asset_file = _asset_path(company, element_key, asset_ext, country=country)
             if not os.path.exists(asset_file):
                 return None
             with open(asset_file, "rb") as af:
@@ -723,12 +768,12 @@ def load_cached_element(company: str, element_key: str, asset_ext: str | None = 
         return None
 
 
-def save_cached_element(company: str, element_key: str, payload: dict, raw_bytes: bytes | None = None, asset_ext: str | None = None):
-    meta_file = _meta_path(company, element_key)
+def save_cached_element(company: str, element_key: str, payload: dict, raw_bytes: bytes | None = None, asset_ext: str | None = None, country: str = ""):
+    meta_file = _meta_path(company, element_key, country=country)
     record = dict(payload)
     record["saved_at"] = time.time()
     if asset_ext and raw_bytes is not None:
-        asset_file = _asset_path(company, element_key, asset_ext)
+        asset_file = _asset_path(company, element_key, asset_ext, country=country)
         with open(asset_file, "wb") as af:
             af.write(raw_bytes)
         record["asset_ext"] = asset_ext
@@ -822,21 +867,22 @@ def route_agent(prompt: str, preferred: str = "gemini", use_search: bool = False
     raise RuntimeError(" | ".join(errors) if errors else "No API key configured.")
 
 
-def get_or_resolve_official_url(company: str) -> str:
-    cached = load_cached_element(company, "official_url_v1")
+def get_or_resolve_official_url(company: str, country: str = "") -> str:
+    cached = load_cached_element(company, "official_url_v1", country=country)
     if cached and cached.get("url"):
         return cached["url"]
     default_url = f"https://{_slug(company)}.com"
     if not GEMINI_KEY:
         return default_url
+    geo_hint = f" specifically for the {country.strip()} market" if (country or "").strip() else ""
     try:
         domain_raw, _ = call_gemini(
-            f"Return ONLY the canonical official homepage URL (e.g., https://supertails.com) for {company}. No markdown, no extra words.",
+            f"Return ONLY the canonical official website URL (e.g., https://supertails.com) for {company}{geo_hint}. No markdown, no extra words.",
             use_search=True,
         )
         match = re.search(r"https?://[^\s\"'<>]+", domain_raw.strip())
         resolved = match.group(0).rstrip(".,)/") if match else default_url
-        save_cached_element(company, "official_url_v1", {"url": resolved})
+        save_cached_element(company, "official_url_v1", {"url": resolved}, country=country)
         return resolved
     except Exception:
         return default_url
@@ -869,8 +915,8 @@ def _download_valid_raster_image(url: str) -> bytes | None:
         return None
 
 
-def get_or_fetch_brand_logo(company: str, base_url: str):
-    cached = load_cached_element(company, "brand_logo_v1", asset_ext="png")
+def get_or_fetch_brand_logo(company: str, base_url: str, country: str = ""):
+    cached = load_cached_element(company, "brand_logo_v1", asset_ext="png", country=country)
     if cached:
         return {"ok": True, "bytes": cached["bytes"], "source": cached.get("source", f"Official Site ({base_url})"), "from_cache": True}
 
@@ -908,7 +954,7 @@ def get_or_fetch_brand_logo(company: str, base_url: str):
             png_bytes = _download_valid_raster_image(c_url)
             if png_bytes:
                 source_label = f"Official Site ({base_url})"
-                save_cached_element(company, "brand_logo_v1", {"source": source_label}, raw_bytes=png_bytes, asset_ext="png")
+                save_cached_element(company, "brand_logo_v1", {"source": source_label}, raw_bytes=png_bytes, asset_ext="png", country=country)
                 return {"ok": True, "bytes": png_bytes, "source": source_label, "from_cache": False}
     except Exception:
         pass
@@ -916,8 +962,8 @@ def get_or_fetch_brand_logo(company: str, base_url: str):
     return {"ok": False, "bytes": None, "source": None, "from_cache": False}
 
 
-def get_or_generate_text_element(company: str, element_key: str, prompt: str, preferred: str = "gemini", use_search: bool = False, use_url_context: bool = False):
-    cached = load_cached_element(company, element_key)
+def get_or_generate_text_element(company: str, element_key: str, prompt: str, preferred: str = "gemini", use_search: bool = False, use_url_context: bool = False, country: str = ""):
+    cached = load_cached_element(company, element_key, country=country)
     if cached:
         return {
             "ok": True,
@@ -929,7 +975,7 @@ def get_or_generate_text_element(company: str, element_key: str, prompt: str, pr
         }
     try:
         content, engine = route_agent(prompt, preferred=preferred, use_search=use_search, use_url_context=use_url_context)
-        save_cached_element(company, element_key, {"content": content, "engine": engine})
+        save_cached_element(company, element_key, {"content": content, "engine": engine}, country=country)
         return {
             "ok": True,
             "content": content,
@@ -949,12 +995,14 @@ def get_or_generate_text_element(company: str, element_key: str, prompt: str, pr
         }
 
 
-def get_or_generate_brand_intel(company: str, official_url: str):
-    cached = load_cached_element(company, "brand_ad_intel_v3")
+def get_or_generate_brand_intel(company: str, official_url: str, country: str = ""):
+    cached = load_cached_element(company, "brand_ad_intel_v3", country=country)
     if cached:
         return cached["content"]
+    geo_clause = f"STRICTLY SCOPED TO {country.strip().upper()} ONLY (use local currency, local regulations, and {country.strip()} market context; ignore other countries)." if (country or "").strip() else "Cover primary active commercial markets."
     prompt = f"""
-    Act as VP of Brand & Performance Creative auditing {company} (official website: {official_url}) across its live storefront, Meta Ad Library, Google Ads Transparency Center, and Google Search.
+    Act as VP of Brand & Performance Creative auditing {company} (official website: {official_url}) across its storefront, Meta Ad Library, Google Ads Transparency Center, and Google Search.
+    {geo_clause}
     STRICT FORMATTING (DO NOT USE ANY EMOJIS):
     - Output EXACTLY these 4 concise bullet points (max 18 words per bullet):
       - **Visual Design Language:** [Exact primary/secondary brand colors, card/UI styling, typography mood, and photography style]
@@ -964,12 +1012,12 @@ def get_or_generate_brand_intel(company: str, official_url: str):
     - Immediately follow with a compact 3-row **Creative Baseline & Opportunity Matrix** table:
       | Channel / Format | Current Baseline Pattern | Creative Fatigue / Gap | Next-Gen Hook Angle |
     """
-    res = get_or_generate_text_element(company, "brand_ad_intel_v3", prompt, preferred="gemini", use_search=True, use_url_context=True)
+    res = get_or_generate_text_element(company, "brand_ad_intel_v3", prompt, preferred="gemini", use_search=True, use_url_context=True, country=country)
     return res["content"] if res["ok"] else f"Authentic brand design language for {company}."
 
 
-def get_or_generate_image_element(company: str, element_key: str, prompt: str, aspect_ratio: str = "1:1", logo_bytes: bytes | None = None):
-    cached = load_cached_element(company, element_key, asset_ext="png")
+def get_or_generate_image_element(company: str, element_key: str, prompt: str, aspect_ratio: str = "1:1", logo_bytes: bytes | None = None, country: str = ""):
+    cached = load_cached_element(company, element_key, asset_ext="png", country=country)
     if cached:
         return {
             "ok": True,
@@ -1011,7 +1059,7 @@ def get_or_generate_image_element(company: str, element_key: str, prompt: str, a
                 buf = io.BytesIO()
                 img.save(buf, format="PNG")
                 raw_png = buf.getvalue()
-                save_cached_element(company, element_key, {}, raw_bytes=raw_png, asset_ext="png")
+                save_cached_element(company, element_key, {}, raw_bytes=raw_png, asset_ext="png", country=country)
                 return {
                     "ok": True,
                     "bytes": raw_png,
@@ -1064,14 +1112,16 @@ def _clean_pdf_text(text: str) -> str:
 
 
 class ExecutivePDF(FPDF):
-    def __init__(self, company_name: str):
+    def __init__(self, company_name: str, country_label: str = ""):
         super().__init__()
         self.company_name = _clean_pdf_text(company_name)
+        self.country_label = _clean_pdf_text(country_label)
 
     def header(self):
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(110, 110, 115)
-        self.cell(0, 8, f"EXECUTIVE INTELLIGENCE BRIEF  |  {self.company_name.upper()}", align="L")
+        geo_tag = f" ({self.country_label.upper()})" if self.country_label else ""
+        self.cell(0, 8, f"EXECUTIVE INTELLIGENCE BRIEF  |  {self.company_name.upper()}{geo_tag}", align="L")
         self.ln(10)
 
     def footer(self):
@@ -1157,7 +1207,8 @@ class ExecutivePDF(FPDF):
 
 def build_executive_pdf(audit_data: dict) -> bytes:
     company = audit_data.get("company", "Brand")
-    pdf = ExecutivePDF(company)
+    country_lbl = audit_data.get("country", "")
+    pdf = ExecutivePDF(company, country_label=country_lbl)
     pdf.set_auto_page_break(auto=True, margin=18)
     pdf.add_page()
 
@@ -1167,7 +1218,8 @@ def build_executive_pdf(audit_data: dict) -> bytes:
 
     pdf.set_font("Helvetica", "", 10.5)
     pdf.set_text_color(110, 110, 115)
-    pdf.cell(0, 7, f"Executive Intelligence Brief  |  {datetime.now().strftime('%B %d, %Y')}", new_x="LMARGIN", new_y="NEXT")
+    geo_part = f"  •  Market: {country_lbl}" if country_lbl else "  •  Market: Global / All Markets"
+    pdf.cell(0, 7, f"Executive Intelligence Brief{geo_part}  |  {datetime.now().strftime('%B %d, %Y')}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
 
     sections = [
@@ -1214,16 +1266,25 @@ def build_executive_pdf(audit_data: dict) -> bytes:
 
 
 # -----------------------------------------------------------------------------
-# LIVE AUDIT ORCHESTRATOR
+# GEO-SCOPED LIVE AUDIT ORCHESTRATOR
 # -----------------------------------------------------------------------------
-def run_live_audit(company: str):
-    with st.spinner(f"Running 5-module intelligence audit for {company}..."):
-        official_url = get_or_resolve_official_url(company)
-        brand_logo = get_or_fetch_brand_logo(company, official_url)
-        brand_dna_text = get_or_generate_brand_intel(company, official_url)
+def run_live_audit(company: str, country: str = ""):
+    clean_country = (country or "").strip()
+    geo_rule = (
+        f"GEOGRAPHIC SCOPE MANDATE: Limit ALL analysis, search queries, buyer prompts, pricing/currency figures, regulations, ad hooks, customer reviews, and creator recommendations strictly to {clean_country.upper()}. Do not blend in other countries."
+        if clean_country
+        else "GEOGRAPHIC SCOPE MANDATE: Analyze the brand across its primary active commercial markets."
+    )
+    spinner_geo = f" ({clean_country})" if clean_country else ""
+
+    with st.spinner(f"Running 5-module intelligence audit for {company}{spinner_geo}..."):
+        official_url = get_or_resolve_official_url(company, country=clean_country)
+        brand_logo = get_or_fetch_brand_logo(company, official_url, country=clean_country)
+        brand_dna_text = get_or_generate_brand_intel(company, official_url, country=clean_country)
 
         p1 = f"""
         Act as Principal SEO, AEO, and GEO Architect auditing {company} ({official_url}).
+        {geo_rule}
         STRICT FORMATTING:
         - Start with:
           | Search Pillar | Score /100 | Observable Diagnostic Signal | Primary Gap |
@@ -1233,6 +1294,7 @@ def run_live_audit(company: str):
         """
         p_paid = f"""
         Act as VP of Performance Marketing & CRO auditing {company} ({official_url}).
+        {geo_rule}
         STRICT FORMATTING:
         - Start with:
           | Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal | Primary Leakage |
@@ -1242,6 +1304,7 @@ def run_live_audit(company: str):
         """
         p2 = f"""
         Act as VP of Pricing & Commercial Strategy auditing {company} ({official_url}).
+        {geo_rule}
         STRICT FORMATTING:
         - Line 1: **Current Pricing Strategy:** [1 concise sentence].
         - Follow with:
@@ -1252,12 +1315,14 @@ def run_live_audit(company: str):
         """
         p3 = f"""
         Act as VP of Performance Creative for {company}. Brand baseline: {brand_dna_text}
+        {geo_rule}
         STRICT FORMATTING (NO EMOJIS):
         - Output 1. Google Search RSA Pack (3 headlines <=30 chars + 2 descriptions <=90 chars), 2. Meta Feed Ad (Primary Text <=110 chars, Headline <=35 chars, CTA), 3. 4-Second Video Hook (Scene + <=12-word hook).
         - End with '---DEEP_DIVE---' followed by 3 bullets (`- **[Channel] Problem -> Fix:** ...`) and a 4-row A/B testing table (`| Ad Variant | Hook / Angle | Target Persona | Primary KPI |`).
         """
         p4 = f"""
         Act as VP of Brand Reputation, Social Listening & Creator Partnerships auditing {company} ({official_url}).
+        {geo_rule}
         STRICT FORMATTING (NO EMOJIS):
         - Line 1: **Current Brand Sentiment Archetype:** [1 concise sentence].
         - Follow with:
@@ -1267,34 +1332,37 @@ def run_live_audit(company: str):
         - End with '---DEEP_DIVE---' followed by 4 bullets (`- **[Area] Problem -> Fix:** ...`), a 4-row SLA table (`| Listening Cluster & Channels | Trigger Signal | Severity & SLA | Owner & Resolution Play |`), and a 10-row creator table (`| Rank | Creator / Channel Name | Primary Platform | Category & Audience Fit | Recommended Collab Angle |`).
         """
 
-        e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v3", p1, preferred="gemini", use_search=True, use_url_context=True)
-        e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v2", p_paid, preferred="gemini", use_search=True, use_url_context=True)
-        e2 = get_or_generate_text_element(company, "agent2_pricing_v2", p2, preferred="gemini", use_search=True, use_url_context=True)
-        e3 = get_or_generate_text_element(company, "agent3_creative_v2", p3, preferred="gemini")
-        e4 = get_or_generate_text_element(company, "agent4_social_v2", p4, preferred="gemini", use_search=True, use_url_context=True)
+        e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v3", p1, preferred="gemini", use_search=True, use_url_context=True, country=clean_country)
+        e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v2", p_paid, preferred="gemini", use_search=True, use_url_context=True, country=clean_country)
+        e2 = get_or_generate_text_element(company, "agent2_pricing_v2", p2, preferred="gemini", use_search=True, use_url_context=True, country=clean_country)
+        e3 = get_or_generate_text_element(company, "agent3_creative_v2", p3, preferred="gemini", country=clean_country)
+        e4 = get_or_generate_text_element(company, "agent4_social_v2", p4, preferred="gemini", use_search=True, use_url_context=True, country=clean_country)
 
         img_meta = img_banner = img_hook_frame = None
         if GENERATE_IMAGES_DEFAULT:
             logo_bytes = brand_logo["bytes"] if brand_logo["ok"] else None
-            img_meta = get_or_generate_image_element(company, "meta_ad_1x1_v3", f"Clean 1:1 Meta feed ad for {company}. {brand_dna_text} Max 2 clean UI elements.", "1:1", logo_bytes)
-            img_banner = get_or_generate_image_element(company, "banner_ad_16x9_v3", f"Clean 16:9 display banner for {company}. {brand_dna_text} Max 2 clean UI elements.", "16:9", logo_bytes)
-            img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9_v3", f"Clean 16:9 4-second video hook opening frame for {company}. {brand_dna_text} Max 2 clean UI overlays.", "16:9", logo_bytes)
+            geo_img_note = f" Market context: {clean_country}." if clean_country else ""
+            img_meta = get_or_generate_image_element(company, "meta_ad_1x1_v3", f"Clean 1:1 Meta feed ad for {company}.{geo_img_note} {brand_dna_text} Max 2 clean UI elements.", "1:1", logo_bytes, country=clean_country)
+            img_banner = get_or_generate_image_element(company, "banner_ad_16x9_v3", f"Clean 16:9 display banner for {company}.{geo_img_note} {brand_dna_text} Max 2 clean UI elements.", "16:9", logo_bytes, country=clean_country)
+            img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9_v3", f"Clean 16:9 4-second video hook opening frame for {company}.{geo_img_note} {brand_dna_text} Max 2 clean UI overlays.", "16:9", logo_bytes, country=clean_country)
 
         s_seo = extract_composite_score(e1.get("content", ""), 68)
         s_paid = extract_composite_score(e_paid.get("content", ""), 61)
         s_pri = extract_composite_score(e2.get("content", ""), 62)
         s_soc = extract_composite_score(e4.get("content", ""), 65)
 
+        geo_suffix = f" in {clean_country}" if clean_country else ""
         return {
             "company": company,
+            "country": clean_country,
             "official_url": official_url,
             "is_showcase": False,
             "hooks": {
-                "seo": (str(s_seo), f"Fix crawl/schema gaps and target high-intent search & AI answers for {company}."),
-                "paid": (str(s_paid), f"Isolate brand vs. non-brand spend and cut funnel drop-offs for {company}."),
-                "pricing": (str(s_pri), f"Gate promos, tune shipping thresholds, and lift high-margin mix for {company}."),
-                "creative": ("72", f"Test high-contrast hooks and compliant ad copy with logo guardrails for {company}."),
-                "social": (str(s_soc), f"Resolve top fulfillment/service friction and activate category creators for {company}."),
+                "seo": (str(s_seo), f"Fix crawl/schema gaps and target high-intent search & AI answers for {company}{geo_suffix}."),
+                "paid": (str(s_paid), f"Isolate brand vs. non-brand spend and cut funnel drop-offs for {company}{geo_suffix}."),
+                "pricing": (str(s_pri), f"Gate promos, tune shipping thresholds, and lift high-margin mix for {company}{geo_suffix}."),
+                "creative": ("72", f"Test high-contrast hooks and compliant ad copy with logo guardrails for {company}{geo_suffix}."),
+                "social": (str(s_soc), f"Resolve top fulfillment/service friction and activate creators for {company}{geo_suffix}."),
             },
             "brand_logo": brand_logo,
             "brand_intel": brand_dna_text,
@@ -1310,7 +1378,7 @@ def run_live_audit(company: str):
 
 
 # -----------------------------------------------------------------------------
-# HEADER, LIVE AUDIT ROW & SEPARATE SAMPLE PRESET ROW
+# HEADER, GEO-SCOPED LIVE AUDIT ROW & SEPARATE SAMPLE PRESET ROW
 # -----------------------------------------------------------------------------
 st.markdown("""
 <div class="suite-eyebrow">Soumya Ranjan Nayak • AI Growth & Pricing Architecture</div>
@@ -1326,12 +1394,18 @@ if "selected_bento_v5" not in st.session_state:
 if "last_audit_v5" not in st.session_state:
     st.session_state["last_audit_v5"] = build_sample_showcase("supertails")
 
-# Line 1: Live Audit Brand Entry
-c_in, c_run = st.columns([3.6, 1.2], vertical_alignment="center")
+# Line 1: Brand Input + Optional Country / Geo Filter + Run Live Audit
+c_in, c_geo, c_run = st.columns([2.4, 1.35, 1.15], vertical_alignment="center")
 with c_in:
     target_company = st.text_input(
         "Target Company",
-        placeholder="Enter any brand name to run a live 5-module audit (e.g., Ather Energy, Zepto, Zerodha)",
+        placeholder="Brand name (e.g., Enphase Energy, Zepto)",
+        label_visibility="collapsed",
+    )
+with c_geo:
+    target_country = st.text_input(
+        "Target Country",
+        placeholder="Country/Geo (e.g., United States, Brazil)",
         label_visibility="collapsed",
     )
 with c_run:
@@ -1341,13 +1415,13 @@ with c_run:
         elif not target_company.strip():
             st.warning("Enter a company name first.")
         else:
-            st.session_state["last_audit_v5"] = run_live_audit(target_company.strip())
+            st.session_state["last_audit_v5"] = run_live_audit(target_company.strip(), target_country.strip())
             st.session_state["selected_bento_v5"] = None
             st.rerun()
 
 # Line 2: Sample Presets (Apple secondary outline pill buttons)
 st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
-p_lbl, p_b1, p_b2, _ = st.columns([2.2, 1.25, 1.25, 1.1], vertical_alignment="center")
+p_lbl, p_b1, p_b2, _ = st.columns([2.1, 1.25, 1.35, 1.1], vertical_alignment="center")
 with p_lbl:
     st.markdown('<div class="preset-strip-label">Sample Presets (pre-loaded reference audits for instant exploration):</div>', unsafe_allow_html=True)
 with p_b1:
@@ -1358,7 +1432,7 @@ with p_b1:
         st.rerun()
 with p_b2:
     st.markdown('<span class="sample-btn-hook" style="display:none;"></span>', unsafe_allow_html=True)
-    if st.button("Sample: Enphase", key="preset_enphase", use_container_width=True):
+    if st.button("Sample: Enphase US", key="preset_enphase_us", use_container_width=True):
         st.session_state["last_audit_v5"] = build_sample_showcase("enphase")
         st.session_state["selected_bento_v5"] = None
         st.rerun()
@@ -1368,6 +1442,7 @@ with p_b2:
 # -----------------------------------------------------------------------------
 audit = st.session_state.get("last_audit_v5") or build_sample_showcase("supertails")
 company = audit.get("company", "Supertails")
+country_val = audit.get("country", "")
 official_url = audit.get("official_url", "")
 hooks = audit.get("hooks") or {}
 
@@ -1379,13 +1454,16 @@ with h_left:
     if bl.get("ok") and bl.get("bytes"):
         b64 = base64.b64encode(bl["bytes"]).decode("utf-8")
         logo_img_html = f'<img src="data:image/png;base64,{b64}" style="height:28px;width:auto;margin-right:10px;vertical-align:middle;" />'
+    geo_badge = f"  •  Geo: {country_val}" if country_val else "  •  Geo: Global"
+    mode_badge = "Sample Preset" if audit.get("is_showcase") else "Live Audit"
     st.markdown(f"<h2>{logo_img_html}{company}</h2>", unsafe_allow_html=True)
-    st.caption(f"{official_url}  •  {'Sample Preset' if audit.get('is_showcase') else 'Live Audit'}")
+    st.caption(f"{official_url}  •  {mode_badge}{geo_badge}")
 with h_right:
+    file_geo_slug = f"_{_slug(country_val)}" if country_val else ""
     st.download_button(
         label="Download PDF",
         data=build_executive_pdf(audit),
-        file_name=f"{_slug(company)}_executive_brief.pdf",
+        file_name=f"{_slug(company)}{file_geo_slug}_executive_brief.pdf",
         mime="application/pdf",
         use_container_width=True,
     )
@@ -1446,9 +1524,12 @@ if selected_bento in key_lookup:
                 st.markdown("### Brand Design Language & Creative Baseline")
                 st.markdown(audit["brand_intel"])
                 q = quote_plus(company)
+                reg = resolve_region_code(country_val)
+                meta_country_param = f"&country={reg}" if reg != "ALL" else ""
+                google_region_param = f"®ion={reg}" if reg != "ALL" else ""
                 st.markdown(
-                    f"[Meta Ad Library ↗](https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=IN&q={q}&search_type=keyword_unordered)  •  "
-                    f"[Google Ads Transparency ↗](https://adstransparency.google.com/?region=IN&domain={q})"
+                    f"[Meta Ad Library ↗](https://www.facebook.com/ads/library/?active_status=active&ad_type=all{meta_country_param}&q={q}&search_type=keyword_unordered)  •  "
+                    f"[Google Ads Transparency ↗](https://adstransparency.google.com/?domain={q}{google_region_param})"
                 )
                 st.markdown("### Next-Gen Ad Copy & Hooks")
 
