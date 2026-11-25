@@ -15,6 +15,8 @@ import time
 import re
 import tempfile
 from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 
 st.set_page_config(
     page_title="Executive Intelligence Suite",
@@ -40,10 +42,107 @@ def _get_secret(key: str, default: str = "") -> str:
     return os.getenv(key, default).strip()
 
 
+def _get_gcp_credentials():
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    try:
+        if "gcp_service_account" in st.secrets:
+            info = dict(st.secrets["gcp_service_account"])
+            if info:
+                return Credentials.from_service_account_info(info, scopes=scopes)
+    except Exception:
+        pass
+
+    fallback_file = "gserviceaccount.json"
+    if os.path.exists(fallback_file):
+        return Credentials.from_service_account_file(fallback_file, scopes=scopes)
+    return None
+
+
 GEMINI_KEY = _get_secret("GEMINI_API_KEY")
 CLAUDE_KEY = _get_secret("ANTHROPIC_API_KEY")
+RESEND_API_KEY = _get_secret("RESEND_API_KEY")
+SENDER_EMAIL = _get_secret("SENDER_EMAIL", "onboarding@resend.dev")
+GSHEET_ID = _get_secret("GSHEET_ID")
 BACKEND_FORCE_REFRESH = _get_secret("FORCE_REFRESH", "false").lower() in ("1", "true", "yes")
 GENERATE_IMAGES_DEFAULT = _get_secret("GENERATE_IMAGES", "true").lower() in ("1", "true", "yes")
+
+
+# -----------------------------------------------------------------------------
+# LEAD LOGGING (GOOGLE SHEETS) & PDF EMAIL DELIVERY (RESEND)
+# -----------------------------------------------------------------------------
+def _is_valid_email(email: str) -> bool:
+    cleaned = (email or "").strip()
+    return re.match(r"^[\w\.-]+@[\w\.-]+\.\w{2,}$", cleaned) is not None
+
+
+def _log_lead_to_sheet(email: str, company: str, country: str = "") -> tuple[bool, str]:
+    if not GSHEET_ID:
+        return False, "GSHEET_ID is not configured in Streamlit Secrets."
+    creds = _get_gcp_credentials()
+    if creds is None:
+        return False, "Google service account credentials ([gcp_service_account]) are missing from Streamlit Secrets."
+    try:
+        gc = gspread.authorize(creds)
+        sh = gc.open_by_key(GSHEET_ID)
+        ws = sh.get_worksheet(0)
+        ws.append_row([
+            email.strip(),
+            company.strip(),
+            (country or "Global").strip(),
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        ])
+        return True, "Saved"
+    except Exception as e:
+        return False, f"Google Sheets error: {e}"
+
+
+def _send_pdf_via_resend(recipient_email: str, company: str, country: str, pdf_bytes: bytes, filename: str) -> tuple[bool, str]:
+    if not RESEND_API_KEY:
+        return False, "RESEND_API_KEY is not configured in Streamlit Secrets."
+
+    geo_label = f" ({country})" if country else " (Global)"
+    encoded_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
+
+    payload = {
+        "from": SENDER_EMAIL or "onboarding@resend.dev",
+        "to": [recipient_email.strip()],
+        "subject": f"Executive Intelligence Brief: {company}{geo_label}",
+        "html": (
+            f"<p>Hi,</p>"
+            f"<p>Here is the <strong>Executive Intelligence Brief</strong> for "
+            f"<strong>{company}{geo_label}</strong>, attached as a PDF.</p>"
+            f"<p>Best,<br/>Soumya Ranjan Nayak</p>"
+        ),
+        "attachments": [
+            {
+                "filename": filename,
+                "content": encoded_pdf,
+            }
+        ],
+    }
+
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+            "User-Agent": "Executive-Intelligence-Suite/1.0",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            if 200 <= resp.status < 300:
+                return True, "Sent"
+            return False, f"Resend returned HTTP {resp.status}"
+    except Exception as e:
+        return False, f"Email delivery error: {e}"
+
 
 # -----------------------------------------------------------------------------
 # COUNTRY CODE HELPER FOR AD TRANSPARENCY LINKS
@@ -259,7 +358,6 @@ div[data-testid="stProgress"] > div > div > div > div {
     overflow: hidden;
 }
 
-/* Pull the button directly after a Bento card up over the card surface */
 div[data-testid="stElementContainer"]:has(.bento-card) {
     margin-bottom: 0 !important;
 }
@@ -292,16 +390,19 @@ div[data-testid="stTextInput"] input {
     color: #1D1D1F !important;
 }
 
-/* Primary solid Apple pill button (Run Live Audit) */
+/* Primary solid Apple pill buttons */
 div[data-testid="stButton"] > button,
-div[data-testid="stButton"] > button p {
+div[data-testid="stButton"] > button p,
+div[data-testid="stFormSubmitButton"] > button,
+div[data-testid="stFormSubmitButton"] > button p {
     font-family: var(--font-ui) !important;
     font-weight: 500 !important;
     font-size: var(--fs-body) !important;
     color: #FFFFFF !important;
 }
 
-div[data-testid="stButton"] > button {
+div[data-testid="stButton"] > button,
+div[data-testid="stFormSubmitButton"] > button {
     border-radius: 999px !important;
     padding: 0.45rem 1.2rem !important;
     background-color: var(--apple-blue) !important;
@@ -309,7 +410,8 @@ div[data-testid="stButton"] > button {
     transition: background-color 0.12s ease, border-color 0.12s ease !important;
 }
 
-div[data-testid="stButton"] > button:hover {
+div[data-testid="stButton"] > button:hover,
+div[data-testid="stFormSubmitButton"] > button:hover {
     background-color: var(--apple-blue-hover) !important;
     border-color: var(--apple-blue-hover) !important;
     color: #FFFFFF !important;
@@ -1499,6 +1601,9 @@ if "scroll_to_detail_nonce" not in st.session_state:
 if "last_audit_v5" not in st.session_state:
     st.session_state["last_audit_v5"] = build_sample_showcase("supertails")
 
+if "delivered_email_v1" not in st.session_state:
+    st.session_state["delivered_email_v1"] = None
+
 
 def _on_tile_click(m_key: str):
     if st.session_state.get("selected_bento_v5") == m_key:
@@ -1538,6 +1643,7 @@ with c_run:
             st.session_state["last_audit_v5"] = run_live_audit(target_company.strip(), target_country.strip())
             st.session_state["selected_bento_v5"] = None
             st.session_state["scroll_to_detail_nonce"] = 0
+            st.session_state["delivered_email_v1"] = None
             st.rerun()
 
 # Line 2: Sample Presets (Apple secondary outline pill buttons)
@@ -1551,6 +1657,7 @@ with p_b1:
         st.session_state["last_audit_v5"] = build_sample_showcase("supertails")
         st.session_state["selected_bento_v5"] = None
         st.session_state["scroll_to_detail_nonce"] = 0
+        st.session_state["delivered_email_v1"] = None
         st.rerun()
 with p_b2:
     st.markdown('<span class="sample-btn-hook" style="display:none;"></span>', unsafe_allow_html=True)
@@ -1558,19 +1665,23 @@ with p_b2:
         st.session_state["last_audit_v5"] = build_sample_showcase("enphase")
         st.session_state["selected_bento_v5"] = None
         st.session_state["scroll_to_detail_nonce"] = 0
+        st.session_state["delivered_email_v1"] = None
         st.rerun()
 
 # -----------------------------------------------------------------------------
-# COMPANY HEADER & 5 PURELY CLICKABLE UNIFORM BENTO TILES
+# COMPANY HEADER & EMAIL PDF DELIVERY + INSTANT DOWNLOAD UNLOCK
 # -----------------------------------------------------------------------------
 audit = st.session_state.get("last_audit_v5") or build_sample_showcase("supertails")
 company = audit.get("company", "Supertails")
 country_val = audit.get("country", "")
 official_url = audit.get("official_url", "")
 hooks = audit.get("hooks") or {}
+file_geo_slug = f"_{_slug(country_val)}" if country_val else ""
+pdf_filename = f"{_slug(company)}{file_geo_slug}_executive_brief.pdf"
+current_report_key = f"{_geo_prefix(company, country_val)}__{audit.get('is_showcase', False)}"
 
 st.markdown("---")
-h_left, h_right = st.columns([3.4, 1.2], vertical_alignment="center")
+h_left, h_right = st.columns([2.7, 2.1], vertical_alignment="top")
 with h_left:
     logo_img_html = ""
     bl = audit.get("brand_logo") or {}
@@ -1581,16 +1692,61 @@ with h_left:
     mode_badge = "Sample Preset" if audit.get("is_showcase") else "Live Audit"
     st.markdown(f"<h2>{logo_img_html}{company}</h2>", unsafe_allow_html=True)
     st.caption(f"{official_url}  •  {mode_badge}{geo_badge}")
+
 with h_right:
-    file_geo_slug = f"_{_slug(country_val)}" if country_val else ""
-    st.download_button(
-        label="Download PDF",
-        data=get_cached_pdf_bytes(audit),
-        file_name=f"{_slug(company)}{file_geo_slug}_executive_brief.pdf",
-        mime="application/pdf",
-        use_container_width=True,
+    delivered_info = st.session_state.get("delivered_email_v1")
+    already_sent_for_this_report = (
+        isinstance(delivered_info, dict)
+        and delivered_info.get("report_key") == current_report_key
+        and bool(delivered_info.get("email"))
     )
 
+    if already_sent_for_this_report:
+        st.success(f"Sent to {delivered_info['email']}")
+        st.download_button(
+            label="Download PDF",
+            data=get_cached_pdf_bytes(audit),
+            file_name=pdf_filename,
+            mime="application/pdf",
+            use_container_width=True,
+        )
+    else:
+        with st.form(key="email_pdf_form", clear_on_submit=False):
+            recipient_email = st.text_input(
+                "Email PDF Report",
+                placeholder="Enter email to receive PDF",
+                label_visibility="collapsed",
+            )
+            send_clicked = st.form_submit_button("Email PDF", use_container_width=True)
+
+            if send_clicked:
+                cleaned_email = (recipient_email or "").strip()
+                if not _is_valid_email(cleaned_email):
+                    st.warning("Please enter a valid email address.")
+                else:
+                    pdf_bytes = get_cached_pdf_bytes(audit)
+                    sent_ok, send_msg = _send_pdf_via_resend(
+                        recipient_email=cleaned_email,
+                        company=company,
+                        country=country_val,
+                        pdf_bytes=pdf_bytes,
+                        filename=pdf_filename,
+                    )
+                    if not sent_ok:
+                        st.error(f"Could not send email: {send_msg}")
+                    else:
+                        logged_ok, log_msg = _log_lead_to_sheet(cleaned_email, company, country_val)
+                        if not logged_ok:
+                            st.warning(f"PDF sent to {cleaned_email}, but sheet logging had a note: {log_msg}")
+                        st.session_state["delivered_email_v1"] = {
+                            "report_key": current_report_key,
+                            "email": cleaned_email,
+                        }
+                        st.rerun()
+
+# -----------------------------------------------------------------------------
+# 5 PURELY CLICKABLE UNIFORM BENTO TILES
+# -----------------------------------------------------------------------------
 selected_bento = st.session_state.get("selected_bento_v5")
 
 
