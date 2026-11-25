@@ -206,38 +206,23 @@ div[data-testid="stProgress"] > div > div > div > div {
     background-color: var(--apple-blue) !important;
 }
 
-/* Clickable uniform Bento card + invisible full-tile button overlay */
-.bento-tile-shell {
-    position: relative;
-    height: 152px;
-    margin-bottom: 0.25rem;
-}
-
+/* Uniform clickable Bento cards with invisible full-surface click trigger */
 .bento-card {
     background-color: #FFFFFF;
     border: 1.5px solid #E5E5EA;
     border-radius: 16px;
     padding: 1.05rem 1.1rem;
-    height: 152px;
+    height: 148px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
-}
-
-.bento-tile-shell:hover .bento-card {
-    border-color: #A1A1A6;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
 }
 
 .bento-card-selected {
     background-color: #F4F9FF;
     border: 1.8px solid var(--apple-blue);
     box-shadow: 0 6px 16px rgba(0, 113, 227, 0.12);
-}
-
-.bento-tile-shell:hover .bento-card-selected {
-    border-color: var(--apple-blue);
 }
 
 .bento-header {
@@ -274,22 +259,28 @@ div[data-testid="stProgress"] > div > div > div > div {
     overflow: hidden;
 }
 
-.bento-tile-shell div[data-testid="stElementContainer"],
-.bento-tile-shell div[data-testid="stButton"] {
-    position: static !important;
-    margin: 0 !important;
-    padding: 0 !important;
+/* Pull the button directly after a Bento card up over the card surface */
+div[data-testid="stElementContainer"]:has(.bento-card) {
+    margin-bottom: 0 !important;
 }
 
-.bento-tile-shell div[data-testid="stButton"] > button {
-    position: absolute !important;
-    inset: 0 !important;
+div[data-testid="stElementContainer"]:has(.bento-card) + div[data-testid="stElementContainer"] {
+    margin-top: -148px !important;
+    height: 148px !important;
+    position: relative !important;
+    z-index: 4 !important;
+}
+
+div[data-testid="stElementContainer"]:has(.bento-card) + div[data-testid="stElementContainer"] div[data-testid="stButton"],
+div[data-testid="stElementContainer"]:has(.bento-card) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button {
     width: 100% !important;
-    height: 100% !important;
+    height: 148px !important;
+    min-height: 148px !important;
     opacity: 0 !important;
     cursor: pointer !important;
-    z-index: 5 !important;
     border-radius: 16px !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 div[data-testid="stTextInput"] input {
@@ -301,7 +292,7 @@ div[data-testid="stTextInput"] input {
     color: #1D1D1F !important;
 }
 
-/* Primary solid Apple pill buttons (Run Live Audit) */
+/* Primary solid Apple pill button (Run Live Audit) */
 div[data-testid="stButton"] > button,
 div[data-testid="stButton"] > button p {
     font-family: var(--font-ui) !important;
@@ -315,7 +306,7 @@ div[data-testid="stButton"] > button {
     padding: 0.45rem 1.2rem !important;
     background-color: var(--apple-blue) !important;
     border: 1.5px solid var(--apple-blue) !important;
-    transition: background-color 0.15s ease, border-color 0.15s ease !important;
+    transition: background-color 0.12s ease, border-color 0.12s ease !important;
 }
 
 div[data-testid="stButton"] > button:hover {
@@ -327,12 +318,8 @@ div[data-testid="stButton"] > button:hover {
 /* Apple secondary pill outline style for Download PDF, Collapse Details & Sample Preset buttons */
 div[data-testid="stDownloadButton"] > button,
 div[data-testid="stDownloadButton"] > button p,
-div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button,
-div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button p,
 div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button,
 div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button p,
-div:has(> div > .collapse-btn-hook) + div[data-testid="stButton"] > button,
-div:has(> div > .collapse-btn-hook) + div[data-testid="stButton"] > button p,
 div[data-testid="stElementContainer"]:has(.collapse-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button,
 div[data-testid="stElementContainer"]:has(.collapse-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button p {
     font-family: var(--font-ui) !important;
@@ -342,21 +329,17 @@ div[data-testid="stElementContainer"]:has(.collapse-btn-hook) + div[data-testid=
 }
 
 div[data-testid="stDownloadButton"] > button,
-div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button,
 div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button,
-div:has(> div > .collapse-btn-hook) + div[data-testid="stButton"] > button,
 div[data-testid="stElementContainer"]:has(.collapse-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button {
     background-color: transparent !important;
     border: 1.5px solid var(--apple-blue) !important;
     border-radius: 999px !important;
     padding: 0.45rem 1.2rem !important;
-    transition: background-color 0.15s ease, color 0.15s ease !important;
+    transition: background-color 0.12s ease, color 0.12s ease !important;
 }
 
 div[data-testid="stDownloadButton"] > button:hover,
-div:has(> div > .sample-btn-hook) + div[data-testid="stButton"] > button:hover,
 div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button:hover,
-div:has(> div > .collapse-btn-hook) + div[data-testid="stButton"] > button:hover,
 div[data-testid="stElementContainer"]:has(.collapse-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button:hover {
     background-color: rgba(0, 113, 227, 0.06) !important;
     border-color: var(--apple-blue-hover) !important;
@@ -1174,7 +1157,7 @@ def extract_composite_score(markdown_text: str, fallback: int = 65) -> int:
 
 
 # -----------------------------------------------------------------------------
-# EXECUTIVE PDF BUILDER
+# EXECUTIVE PDF BUILDER (CACHED PER AUDIT)
 # -----------------------------------------------------------------------------
 def _clean_pdf_text(text: str) -> str:
     if not text:
@@ -1347,6 +1330,14 @@ def build_executive_pdf(audit_data: dict) -> bytes:
     return bytes(raw_out) if isinstance(raw_out, (bytes, bytearray)) else raw_out.encode("latin-1")
 
 
+def get_cached_pdf_bytes(audit_data: dict) -> bytes:
+    cache_map = st.session_state.setdefault("pdf_cache_v1", {})
+    key = f"{_geo_prefix(audit_data.get('company', 'brand'), audit_data.get('country', ''))}__{audit_data.get('is_showcase', False)}"
+    if key not in cache_map:
+        cache_map[key] = build_executive_pdf(audit_data)
+    return cache_map[key]
+
+
 # -----------------------------------------------------------------------------
 # GEO-SCOPED LIVE AUDIT ORCHESTRATOR (WITH VISUAL PROGRESS BAR)
 # -----------------------------------------------------------------------------
@@ -1508,6 +1499,21 @@ if "scroll_to_detail_nonce" not in st.session_state:
 if "last_audit_v5" not in st.session_state:
     st.session_state["last_audit_v5"] = build_sample_showcase("supertails")
 
+
+def _on_tile_click(m_key: str):
+    if st.session_state.get("selected_bento_v5") == m_key:
+        st.session_state["selected_bento_v5"] = None
+        st.session_state["scroll_to_detail_nonce"] = 0
+    else:
+        st.session_state["selected_bento_v5"] = m_key
+        st.session_state["scroll_to_detail_nonce"] = time.time_ns()
+
+
+def _on_collapse_click():
+    st.session_state["selected_bento_v5"] = None
+    st.session_state["scroll_to_detail_nonce"] = 0
+
+
 # Line 1: Brand Input + Optional Country / Geo Filter + Run Live Audit
 c_in, c_geo, c_run = st.columns([2.4, 1.35, 1.15], vertical_alignment="center")
 with c_in:
@@ -1555,7 +1561,7 @@ with p_b2:
         st.rerun()
 
 # -----------------------------------------------------------------------------
-# COMPANY HEADER & 5 CLICKABLE UNIFORM BENTO TILES
+# COMPANY HEADER & 5 PURELY CLICKABLE UNIFORM BENTO TILES
 # -----------------------------------------------------------------------------
 audit = st.session_state.get("last_audit_v5") or build_sample_showcase("supertails")
 company = audit.get("company", "Supertails")
@@ -1579,7 +1585,7 @@ with h_right:
     file_geo_slug = f"_{_slug(country_val)}" if country_val else ""
     st.download_button(
         label="Download PDF",
-        data=build_executive_pdf(audit),
+        data=get_cached_pdf_bytes(audit),
         file_name=f"{_slug(company)}{file_geo_slug}_executive_brief.pdf",
         mime="application/pdf",
         use_container_width=True,
@@ -1592,38 +1598,34 @@ def render_uniform_bento_row(keys: list[str]):
     cols = st.columns(len(keys))
     for i, m_key in enumerate(keys):
         with cols[i]:
-            h_pair = hooks.get(m_key, ("65", "Click card to view module diagnostics."))
+            h_pair = hooks.get(m_key, ("65", "Click tile to view module diagnostics."))
             sc_val = str(h_pair[0]) if len(h_pair) > 0 else "65"
             one_line = str(h_pair[1]) if len(h_pair) > 1 else ""
             is_sel = (selected_bento == m_key)
             card_cls = "bento-card bento-card-selected" if is_sel else "bento-card"
             st.markdown(f"""
-            <div class="bento-tile-shell">
-                <div class="{card_cls}">
-                    <div class="bento-header">
-                        <span class="bento-pillar">{MODULE_LABELS[m_key]}</span>
-                        <span class="bento-score">{sc_val}/100</span>
-                    </div>
-                    <div class="bento-oneliner">{one_line}</div>
+            <div class="{card_cls}">
+                <div class="bento-header">
+                    <span class="bento-pillar">{MODULE_LABELS[m_key]}</span>
+                    <span class="bento-score">{sc_val}/100</span>
                 </div>
+                <div class="bento-oneliner">{one_line}</div>
             </div>
             """, unsafe_allow_html=True)
-            if st.button(f"Open {MODULE_LABELS[m_key]}", key=f"bento_card_btn_{m_key}", use_container_width=True):
-                if is_sel:
-                    st.session_state["selected_bento_v5"] = None
-                    st.session_state["scroll_to_detail_nonce"] = 0
-                else:
-                    st.session_state["selected_bento_v5"] = m_key
-                    st.session_state["scroll_to_detail_nonce"] = time.time_ns()
-                st.rerun()
+            st.button(
+                MODULE_LABELS[m_key],
+                key=f"bento_tile_trigger_{m_key}",
+                on_click=_on_tile_click,
+                args=(m_key,),
+            )
 
 
 render_uniform_bento_row(["seo", "paid", "pricing"])
-st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 render_uniform_bento_row(["creative", "social"])
 
 # -----------------------------------------------------------------------------
-# DETAIL SECTION (WITH AUTO-SCROLL & COLLAPSE DETAILS ACTION)
+# DETAIL SECTION (WITH AUTO-SCROLL & FAST COLLAPSE DETAILS ACTION)
 # -----------------------------------------------------------------------------
 key_lookup = {
     "seo": "e1",
@@ -1642,7 +1644,7 @@ if selected_bento in key_lookup:
         components.html(f"""
         <script>
         (function() {{
-            const nonce = {int(scroll_nonce)};
+            const _n = {int(scroll_nonce)};
             const doc = window.parent && window.parent.document ? window.parent.document : document;
             const target = doc.getElementById("detail-section-anchor");
             if (target) {{
@@ -1661,9 +1663,7 @@ if selected_bento in key_lookup:
         st.markdown(f"### {MODULE_FULL_TITLES[selected_bento]} ({sel_score}/100)")
     with d_right:
         st.markdown('<span class="collapse-btn-hook" style="display:none;"></span>', unsafe_allow_html=True)
-        if st.button("Collapse Details", key="collapse_detail_btn", use_container_width=True):
-            st.session_state["selected_bento_v5"] = None
-            st.rerun()
+        st.button("Collapse Details", key="collapse_detail_btn", on_click=_on_collapse_click, use_container_width=True)
 
     if not item or not item.get("ok"):
         st.error(item.get("error", "Module unavailable.") if item else "Module unavailable.")
