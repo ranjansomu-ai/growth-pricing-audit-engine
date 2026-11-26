@@ -6,6 +6,8 @@ import anthropic
 from PIL import Image
 from urllib.parse import quote_plus, urljoin
 from fpdf import FPDF
+from email.message import EmailMessage
+import smtplib
 import urllib.request
 import base64
 import io
@@ -63,15 +65,15 @@ def _get_gcp_credentials():
 
 GEMINI_KEY = _get_secret("GEMINI_API_KEY")
 CLAUDE_KEY = _get_secret("ANTHROPIC_API_KEY")
-RESEND_API_KEY = _get_secret("RESEND_API_KEY")
-SENDER_EMAIL = _get_secret("SENDER_EMAIL", "onboarding@resend.dev")
+GMAIL_SENDER = _get_secret("GMAIL_SENDER")
+GMAIL_APP_PASSWORD = _get_secret("GMAIL_APP_PASSWORD").replace(" ", "")
 GSHEET_ID = _get_secret("GSHEET_ID")
 BACKEND_FORCE_REFRESH = _get_secret("FORCE_REFRESH", "false").lower() in ("1", "true", "yes")
 GENERATE_IMAGES_DEFAULT = _get_secret("GENERATE_IMAGES", "true").lower() in ("1", "true", "yes")
 
 
 # -----------------------------------------------------------------------------
-# LEAD LOGGING (GOOGLE SHEETS) & PDF EMAIL DELIVERY (RESEND)
+# LEAD LOGGING (GOOGLE SHEETS) & PDF EMAIL DELIVERY (GMAIL SMTP)
 # -----------------------------------------------------------------------------
 def _is_valid_email(email: str) -> bool:
     cleaned = (email or "").strip()
@@ -99,49 +101,54 @@ def _log_lead_to_sheet(email: str, company: str, country: str = "") -> tuple[boo
         return False, f"Google Sheets error: {e}"
 
 
-def _send_pdf_via_resend(recipient_email: str, company: str, country: str, pdf_bytes: bytes, filename: str) -> tuple[bool, str]:
-    if not RESEND_API_KEY:
-        return False, "RESEND_API_KEY is not configured in Streamlit Secrets."
+def _send_pdf_via_gmail_smtp(
+    recipient_email: str,
+    company: str,
+    country: str,
+    pdf_bytes: bytes,
+    filename: str,
+) -> tuple[bool, str]:
+    if not GMAIL_SENDER:
+        return False, "GMAIL_SENDER is not configured in Streamlit Secrets."
+    if not GMAIL_APP_PASSWORD:
+        return False, "GMAIL_APP_PASSWORD is not configured in Streamlit Secrets."
 
     geo_label = f" ({country})" if country else " (Global)"
-    encoded_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
-
-    payload = {
-        "from": SENDER_EMAIL or "onboarding@resend.dev",
-        "to": [recipient_email.strip()],
-        "subject": f"Executive Intelligence Brief: {company}{geo_label}",
-        "html": (
-            f"<p>Hi,</p>"
-            f"<p>Here is the <strong>Executive Intelligence Brief</strong> for "
-            f"<strong>{company}{geo_label}</strong>, attached as a PDF.</p>"
-            f"<p>Best,<br/>Soumya Ranjan Nayak</p>"
-        ),
-        "attachments": [
-            {
-                "filename": filename,
-                "content": encoded_pdf,
-            }
-        ],
-    }
-
-    req = urllib.request.Request(
-        "https://api.resend.com/emails",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {RESEND_API_KEY}",
-            "Content-Type": "application/json",
-            "User-Agent": "Executive-Intelligence-Suite/1.0",
-        },
-        method="POST",
+    msg = EmailMessage()
+    msg["From"] = f"Executive Intelligence Suite <{GMAIL_SENDER}>"
+    msg["To"] = recipient_email.strip()
+    msg["Subject"] = f"Executive Intelligence Brief: {company}{geo_label}"
+    msg.set_content(
+        f"Hi,\n\n"
+        f"Attached is the Executive Intelligence Brief for {company}{geo_label} as a PDF.\n\n"
+        f"Best,\nSoumya Ranjan Nayak"
+    )
+    msg.add_alternative(
+        f"<p>Hi,</p>"
+        f"<p>Attached is the <strong>Executive Intelligence Brief</strong> for "
+        f"<strong>{company}{geo_label}</strong> as a PDF.</p>"
+        f"<p>Best,<br/>Soumya Ranjan Nayak</p>",
+        subtype="html",
+    )
+    msg.add_attachment(
+        pdf_bytes,
+        maintype="application",
+        subtype="pdf",
+        filename=filename,
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            if 200 <= resp.status < 300:
-                return True, "Sent"
-            return False, f"Resend returned HTTP {resp.status}"
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(GMAIL_SENDER, GMAIL_APP_PASSWORD)
+            server.send_message(msg)
+        return True, "Sent"
+    except smtplib.SMTPAuthenticationError:
+        return False, "Gmail SMTP authentication failed. Verify GMAIL_SENDER and your 16-character Google App Password."
     except Exception as e:
-        return False, f"Email delivery error: {e}"
+        return False, f"Gmail SMTP error: {e}"
 
 
 # -----------------------------------------------------------------------------
@@ -1725,7 +1732,7 @@ with h_right:
                     st.warning("Please enter a valid email address.")
                 else:
                     pdf_bytes = get_cached_pdf_bytes(audit)
-                    sent_ok, send_msg = _send_pdf_via_resend(
+                    sent_ok, send_msg = _send_pdf_via_gmail_smtp(
                         recipient_email=cleaned_email,
                         company=company,
                         country=country_val,
@@ -1832,7 +1839,7 @@ if selected_bento in key_lookup:
             q = quote_plus(company)
             reg = resolve_region_code(country_val)
             meta_country_param = f"&country={reg}" if reg != "ALL" else ""
-            google_region_param = f"®ion={reg}" if reg != "ALL" else ""
+            google_region_param = f"&region={reg}" if reg != "ALL" else ""
             st.markdown(
                 f"[Meta Ad Library ↗](https://www.facebook.com/ads/library/?active_status=active&ad_type=all{meta_country_param}&q={q}&search_type=keyword_unordered)  •  "
                 f"[Google Ads Transparency ↗](https://adstransparency.google.com/?domain={q}{google_region_param})"
