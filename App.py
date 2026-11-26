@@ -113,21 +113,25 @@ def _send_pdf_via_gmail_smtp(
     if not GMAIL_APP_PASSWORD:
         return False, "GMAIL_APP_PASSWORD is not configured in Streamlit Secrets."
 
-    geo_label = f" ({country})" if country else " (Global)"
+    geo_label = f" - {country}" if country else ""
     msg = EmailMessage()
     msg["From"] = f"Executive Intelligence Suite <{GMAIL_SENDER}>"
     msg["To"] = recipient_email.strip()
-    msg["Subject"] = f"Executive Intelligence Brief: {company}{geo_label}"
+    msg["Subject"] = f"Your PDF report for {company}{geo_label}"
     msg.set_content(
-        f"Hi,\n\n"
-        f"Attached is the Executive Intelligence Brief for {company}{geo_label} as a PDF.\n\n"
-        f"Best,\nSoumya Ranjan Nayak"
+        f"Hello,\n\n"
+        f"Here is the PDF report you requested for {company}{geo_label}.\n\n"
+        f"If you do not see it in your primary inbox within a minute, please check your "
+        f"Spam or Promotions folder and mark the message as Not spam.\n\n"
+        f"Regards,\nSoumya Ranjan Nayak"
     )
     msg.add_alternative(
-        f"<p>Hi,</p>"
-        f"<p>Attached is the <strong>Executive Intelligence Brief</strong> for "
-        f"<strong>{company}{geo_label}</strong> as a PDF.</p>"
-        f"<p>Best,<br/>Soumya Ranjan Nayak</p>",
+        f"<p>Hello,</p>"
+        f"<p>Here is the PDF report you requested for <strong>{company}{geo_label}</strong>.</p>"
+        f"<p>If it does not appear in your primary inbox within a minute, please check your "
+        f"<strong>Spam</strong> or <strong>Promotions</strong> folder and mark it as "
+        f"<strong>Not spam</strong>.</p>"
+        f"<p>Regards,<br/>Soumya Ranjan Nayak</p>",
         subtype="html",
     )
     msg.add_attachment(
@@ -1710,6 +1714,7 @@ with h_right:
 
     if already_sent_for_this_report:
         st.success(f"Sent to {delivered_info['email']}")
+        st.caption("Don't see it? Check Spam or Promotions and mark Not spam.")
         st.download_button(
             label="Download PDF",
             data=get_cached_pdf_bytes(audit),
@@ -1839,7 +1844,7 @@ if selected_bento in key_lookup:
             q = quote_plus(company)
             reg = resolve_region_code(country_val)
             meta_country_param = f"&country={reg}" if reg != "ALL" else ""
-            google_region_param = f"&region={reg}" if reg != "ALL" else ""
+            google_region_param = f"®ion={reg}" if reg != "ALL" else ""
             st.markdown(
                 f"[Meta Ad Library ↗](https://www.facebook.com/ads/library/?active_status=active&ad_type=all{meta_country_param}&q={q}&search_type=keyword_unordered)  •  "
                 f"[Google Ads Transparency ↗](https://adstransparency.google.com/?domain={q}{google_region_param})"
