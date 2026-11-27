@@ -433,6 +433,8 @@ div[data-testid="stProgress"] > div > div > div > div {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    position: relative;
+    z-index: 1;
     transition: border-color 0.14s ease, box-shadow 0.14s ease, background-color 0.14s ease;
 }
 
@@ -489,39 +491,6 @@ div[data-testid="stProgress"] > div > div > div > div {
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
-}
-
-div[data-testid="stElementContainer"]:has(.bento-card) {
-    margin-bottom: 0 !important;
-    padding-bottom: 0 !important;
-}
-
-div[data-testid="stElementContainer"]:has(.bento-card):hover .bento-card {
-    border-color: var(--apple-blue) !important;
-    box-shadow: 0 4px 12px rgba(0, 113, 227, 0.08) !important;
-}
-
-div[data-testid="stElementContainer"]:has(.bento-card) + div[data-testid="stElementContainer"] {
-    margin-top: -148px !important;
-    margin-bottom: 0 !important;
-    padding: 0 !important;
-    height: 148px !important;
-    position: relative !important;
-    z-index: 10 !important;
-}
-
-div[data-testid="stElementContainer"]:has(.bento-card) + div[data-testid="stElementContainer"] > div,
-div[data-testid="stElementContainer"]:has(.bento-card) + div[data-testid="stElementContainer"] div[data-testid="stButton"],
-div[data-testid="stElementContainer"]:has(.bento-card) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button {
-    width: 100% !important;
-    height: 148px !important;
-    min-height: 148px !important;
-    max-height: 148px !important;
-    opacity: 0 !important;
-    cursor: pointer !important;
-    border-radius: 16px !important;
-    margin: 0 !important;
-    padding: 0 !important;
 }
 
 div[data-testid="stTextInput"] input {
@@ -2504,7 +2473,7 @@ with h_right:
                         st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5 PURELY CLICKABLE UNIFORM BENTO TILES (FULL-SURFACE OVERLAY)
+# 5 PURELY CLICKABLE UNIFORM BENTO TILES (FULL-SURFACE JS HITBOX BINDER)
 # -----------------------------------------------------------------------------
 selected_bento = st.session_state.get("selected_bento_v5")
 
@@ -2520,7 +2489,7 @@ def render_uniform_bento_row(keys: list[str]):
             card_cls = "bento-card bento-card-selected" if is_sel else "bento-card"
             tier_cls = _score_tier_css(sc_val)
             st.markdown(
-                f'<div class="{card_cls}">'
+                f'<div class="{card_cls}" data-bento-key="{m_key}">'
                 f'<div class="bento-header">'
                 f'<span class="bento-pillar">{MODULE_LABELS[m_key]}</span>'
                 f'<span class="bento-score {tier_cls}">{sc_val}/100</span>'
@@ -2540,6 +2509,68 @@ def render_uniform_bento_row(keys: list[str]):
 render_uniform_bento_row(["seo", "paid", "pricing"])
 st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 render_uniform_bento_row(["creative", "social"])
+
+components.html(
+    """
+    <script>
+    (function() {
+      const doc = window.parent && window.parent.document ? window.parent.document : document;
+      function bindFullTileHitboxes() {
+        const cards = doc.querySelectorAll('.bento-card[data-bento-key]');
+        cards.forEach((card) => {
+          const col = card.closest('[data-testid="stColumn"]') || card.parentElement;
+          if (!col) return;
+          const btn = col.querySelector('div[data-testid="stButton"] > button');
+          if (!btn) return;
+          const btnWrap = btn.closest('div[data-testid="stButton"]');
+          const btnOuter = btn.closest('[data-testid="stElementContainer"]');
+
+          col.style.position = 'relative';
+          if (btnOuter) {
+            btnOuter.style.position = 'static';
+            btnOuter.style.margin = '0';
+            btnOuter.style.padding = '0';
+            btnOuter.style.height = '0';
+          }
+          if (btnWrap) {
+            btnWrap.style.position = 'static';
+            btnWrap.style.margin = '0';
+            btnWrap.style.padding = '0';
+          }
+          btn.style.position = 'absolute';
+          btn.style.top = '0';
+          btn.style.left = '0';
+          btn.style.width = '100%';
+          btn.style.height = '148px';
+          btn.style.minHeight = '148px';
+          btn.style.opacity = '0';
+          btn.style.zIndex = '25';
+          btn.style.cursor = 'pointer';
+          btn.style.borderRadius = '16px';
+
+          if (!card.dataset.hoverBound) {
+            card.dataset.hoverBound = '1';
+            btn.addEventListener('mouseenter', () => {
+              card.style.borderColor = '#0071E3';
+              card.style.boxShadow = '0 4px 12px rgba(0, 113, 227, 0.10)';
+            });
+            btn.addEventListener('mouseleave', () => {
+              if (!card.classList.contains('bento-card-selected')) {
+                card.style.borderColor = '#E5E5EA';
+                card.style.boxShadow = 'none';
+              }
+            });
+          }
+        });
+      }
+      bindFullTileHitboxes();
+      setTimeout(bindFullTileHitboxes, 150);
+      setTimeout(bindFullTileHitboxes, 500);
+    })();
+    </script>
+    """,
+    height=0,
+)
 
 # -----------------------------------------------------------------------------
 # DETAIL SECTION (WITH AUTO-SCROLL & FAST COLLAPSE DETAILS ACTION)
