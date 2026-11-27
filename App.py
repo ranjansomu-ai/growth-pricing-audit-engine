@@ -38,6 +38,42 @@ BUSINESS_MODELS = [
     "Hybrid / B2B2C",
 ]
 
+NO_LATEX_CURRENCY_RULE = (
+    "CURRENCY & FORMATTING RULE: Never wrap numbers or currency values in LaTeX dollar delimiters like $250K$ or $3,00,000/mo$. "
+    "Write plain text such as USD 250K, INR 3,00,000/mo, or GBP 1,000."
+)
+
+
+def _sanitize_display_text(text: str) -> str:
+    if not text:
+        return ""
+    cleaned = text
+    # Strip accidental LaTeX math delimiters around currency/numbers like $250K$ or $3,00,000$
+    cleaned = re.sub(r"\$([^$\n]{1,60})\$", r"\1", cleaned)
+    # Normalize unicode arrows/dashes cleanly while preserving readability
+    cleaned = cleaned.replace("\u2192", "->")
+    return cleaned
+
+
+def _score_tier_rgb(score_str: str) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+    digits = re.sub(r"[^\d]", "", str(score_str or ""))
+    val = int(digits) if digits else 65
+    if val < 50:
+        return (254, 226, 226), (153, 27, 27)   # Soft Red fill, dark red text
+    if val < 70:
+        return (254, 243, 199), (146, 64, 14)   # Soft Amber fill, dark amber text
+    return (209, 250, 229), (6, 95, 70)        # Soft Emerald fill, dark green text
+
+
+def _score_tier_css(score_str: str) -> str:
+    digits = re.sub(r"[^\d]", "", str(score_str or ""))
+    val = int(digits) if digits else 65
+    if val < 50:
+        return "score-low"
+    if val < 70:
+        return "score-mid"
+    return "score-high"
+
 
 def _get_secret(key: str, default: str = "") -> str:
     try:
@@ -292,7 +328,6 @@ html, body, .stApp, .stMarkdown, p, li, label, input, div, table, th, td {
     color: #1D1D1F;
 }
 
-/* Preserve Streamlit icon fonts so ligatures like arrow_right never collide with text */
 [data-testid="stIconMaterial"],
 .material-symbols-rounded,
 .material-symbols-outlined {
@@ -432,6 +467,21 @@ div[data-testid="stProgress"] > div > div > div > div {
     white-space: nowrap;
 }
 
+.bento-score.score-low {
+    background-color: #FEE2E2 !important;
+    color: #991B1B !important;
+}
+
+.bento-score.score-mid {
+    background-color: #FEF3C7 !important;
+    color: #92400E !important;
+}
+
+.bento-score.score-high {
+    background-color: #D1FAE5 !important;
+    color: #065F46 !important;
+}
+
 .bento-oneliner {
     font-size: var(--fs-body) !important;
     color: #424245 !important;
@@ -474,7 +524,6 @@ div[data-testid="stTextInput"] input {
     color: #1D1D1F !important;
 }
 
-/* Primary solid Apple pill buttons */
 div[data-testid="stButton"] > button,
 div[data-testid="stButton"] > button p,
 div[data-testid="stFormSubmitButton"] > button,
@@ -501,7 +550,6 @@ div[data-testid="stFormSubmitButton"] > button:hover {
     color: #FFFFFF !important;
 }
 
-/* Apple secondary pill outline style for Download PDF, Collapse Details & Sample Preset buttons */
 div[data-testid="stDownloadButton"] > button,
 div[data-testid="stDownloadButton"] > button p,
 div[data-testid="stElementContainer"]:has(.sample-btn-hook) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button,
@@ -1244,8 +1292,9 @@ def call_gemini(prompt: str, use_search: bool = False, use_url_context: bool = F
             )
             if not res or not res.text:
                 raise RuntimeError(f"Empty response from {model_id}")
+            cleaned = _sanitize_display_text(res.text)
             mode_tag = "Search + URL Context" if (use_search and use_url_context) else ("Search" if use_search else "Direct")
-            return res.text, f"Gemini ({model_id} • {mode_tag})"
+            return cleaned, f"Gemini ({model_id} • {mode_tag})"
         except Exception as e:
             if use_url_context:
                 try:
@@ -1256,7 +1305,7 @@ def call_gemini(prompt: str, use_search: bool = False, use_url_context: bool = F
                         config=types.GenerateContentConfig(tools=fallback_tools),
                     )
                     if res and res.text:
-                        return res.text, f"Gemini ({model_id} • Search)"
+                        return _sanitize_display_text(res.text), f"Gemini ({model_id} • Search)"
                 except Exception as inner_e:
                     last_err = inner_e
             else:
@@ -1277,7 +1326,7 @@ def call_claude(prompt: str, use_search: bool = False):
         kwargs["tools"] = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}]
     msg = client.messages.create(**kwargs)
     text_parts = [block.text for block in msg.content if getattr(block, "type", "") == "text" and getattr(block, "text", "")]
-    text = "\n".join(text_parts).strip()
+    text = _sanitize_display_text("\n".join(text_parts).strip())
     if not text:
         raise RuntimeError("Empty response from Claude.")
     mode_tag = "Web Search" if use_search else "Direct"
@@ -1339,12 +1388,15 @@ def detect_business_model_from_site(company: str, official_url: str, country: st
     - Choose "B2C / DTC" if the primary offering is direct-to-consumer or retail products/services sold to individual consumers.
     - Choose "Hybrid / B2B2C" if the brand meaningfully serves both end consumers/retailers and B2B/enterprise/channel/partner buyers.
 
+    {NO_LATEX_CURRENCY_RULE}
+
     Respond ONLY in this exact two-line format (no emojis):
     MODEL: <B2C / DTC | B2B / B2B SaaS | Hybrid / B2B2C>
     REASON: <1 concise sentence under 22 words citing website/offering signals>
     """
     try:
         raw, _ = route_agent(prompt, preferred="gemini", use_search=True, use_url_context=True)
+        raw = _sanitize_display_text(raw)
         model_match = re.search(r"MODEL:\s*(B2C\s*/\s*DTC|B2B\s*/\s*B2B\s*SaaS|Hybrid\s*/\s*B2B2C)", raw, re.IGNORECASE)
         reason_match = re.search(r"REASON:\s*(.+)", raw, re.IGNORECASE)
 
@@ -1448,7 +1500,7 @@ def get_or_generate_text_element(company: str, element_key: str, prompt: str, pr
     if cached:
         return {
             "ok": True,
-            "content": cached["content"],
+            "content": _sanitize_display_text(cached["content"]),
             "engine": cached["engine"],
             "from_cache": True,
             "age": format_age(cached["saved_at"]),
@@ -1456,6 +1508,7 @@ def get_or_generate_text_element(company: str, element_key: str, prompt: str, pr
         }
     try:
         content, engine = route_agent(prompt, preferred=preferred, use_search=use_search, use_url_context=use_url_context)
+        content = _sanitize_display_text(content)
         save_cached_element(company, element_key, {"content": content, "engine": engine}, country=country, biz_model=biz_model)
         return {
             "ok": True,
@@ -1477,15 +1530,16 @@ def get_or_generate_text_element(company: str, element_key: str, prompt: str, pr
 
 
 def get_or_generate_brand_intel(company: str, official_url: str, country: str = "", biz_model: str = "B2C / DTC"):
-    cached = load_cached_element(company, "brand_ad_intel_v4", country=country, biz_model=biz_model)
+    cached = load_cached_element(company, "brand_ad_intel_v5", country=country, biz_model=biz_model)
     if cached:
-        return cached["content"]
+        return _sanitize_display_text(cached["content"])
     m_ctx = _model_guidance(biz_model)
     geo_clause = f"STRICTLY SCOPED TO {country.strip().upper()} ONLY (use local currency, local regulations, and {country.strip()} market context; ignore other countries)." if (country or "").strip() else "Cover primary active commercial markets."
     prompt = f"""
     Act as VP of Brand & Performance Creative auditing {company} (official website: {official_url}) across its web experience, Meta Ad Library, LinkedIn/Google Ads Transparency Center, and search presence.
     {m_ctx["prompt_context"]}
     {geo_clause}
+    {NO_LATEX_CURRENCY_RULE}
     STRICT FORMATTING (DO NOT USE ANY EMOJIS):
     - Output EXACTLY these 4 concise bullet points (max 18 words per bullet):
       - **Visual Design Language:** [Exact primary/secondary brand colors, card/UI styling, typography mood, and photography/product UI style]
@@ -1495,8 +1549,8 @@ def get_or_generate_brand_intel(company: str, official_url: str, country: str = 
     - Immediately follow with a compact 3-row **Creative Baseline & Opportunity Matrix** table:
       | Channel / Format | Current Baseline Pattern | Creative Fatigue / Gap | Next-Gen Hook Angle |
     """
-    res = get_or_generate_text_element(company, "brand_ad_intel_v4", prompt, preferred="gemini", use_search=True, use_url_context=True, country=country, biz_model=biz_model)
-    return res["content"] if res["ok"] else f"Authentic brand design language for {company}."
+    res = get_or_generate_text_element(company, "brand_ad_intel_v5", prompt, preferred="gemini", use_search=True, use_url_context=True, country=country, biz_model=biz_model)
+    return _sanitize_display_text(res["content"]) if res["ok"] else f"Authentic brand design language for {company}."
 
 
 def get_or_generate_image_element(company: str, element_key: str, prompt: str, aspect_ratio: str = "1:1", logo_bytes: bytes | None = None, country: str = "", biz_model: str = "B2C / DTC"):
@@ -1576,11 +1630,99 @@ def extract_composite_score(markdown_text: str, fallback: int = 65) -> int:
 
 
 # -----------------------------------------------------------------------------
-# EXECUTIVE PDF BUILDER (CACHED PER AUDIT)
+# BRAND COLOR EXTRACTOR, PILLAR CHART & EXECUTIVE SUMMARY + APPENDIX PDF BUILDER
 # -----------------------------------------------------------------------------
+def _extract_brand_rgb(logo_bytes: bytes | None) -> tuple[int, int, int]:
+    default_rgb = (0, 113, 227)
+    if not logo_bytes:
+        return default_rgb
+    try:
+        img = Image.open(io.BytesIO(logo_bytes)).convert("RGBA")
+        img.thumbnail((64, 64))
+        color_counts: dict[tuple[int, int, int], int] = {}
+        for r, g, b, a in img.getdata():
+            if a < 140:
+                continue
+            if (r > 235 and g > 235 and b > 235) or (r < 25 and g < 25 and b < 25):
+                continue
+            bucket = (round(r / 16) * 16, round(g / 16) * 16, round(b / 16) * 16)
+            color_counts[bucket] = color_counts.get(bucket, 0) + 1
+        if not color_counts:
+            return default_rgb
+        best = max(color_counts.items(), key=lambda kv: kv[1])[0]
+        return (min(210, best[0]), min(210, best[1]), min(210, best[2]))
+    except Exception:
+        return default_rgb
+
+
+def _render_pillar_score_chart_png(hooks: dict, brand_rgb: tuple[int, int, int]) -> bytes | None:
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        labels = [
+            "Social & Brand",
+            "Creative Studio",
+            "Pricing & Econ",
+            "Paid & CRO",
+            "SEO / AEO / GEO",
+        ]
+        ordered_keys = ["social", "creative", "pricing", "paid", "seo"]
+        scores = []
+        bar_colors = []
+        for k in ordered_keys:
+            raw_sc = hooks.get(k, ("65", ""))[0]
+            try:
+                val = max(0, min(100, int(re.sub(r"[^\d]", "", str(raw_sc)) or "65")))
+            except ValueError:
+                val = 65
+            scores.append(val)
+            if val < 50:
+                bar_colors.append("#DC2626")
+            elif val < 70:
+                bar_colors.append("#D97706")
+            else:
+                bar_colors.append("#059669")
+
+        fig, ax = plt.subplots(figsize=(7.6, 2.55), dpi=180)
+        fig.patch.set_facecolor("#FFFFFF")
+        ax.set_facecolor("#FAFBFD")
+
+        y_pos = list(range(len(labels)))
+        bars = ax.barh(y_pos, scores, height=0.56, color=bar_colors, edgecolor="none")
+
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(labels, fontsize=9, fontweight="bold", color="#1D1D1F")
+        ax.set_xlim(0, 108)
+        ax.xaxis.grid(True, linestyle="--", alpha=0.45, color="#CBD5E1")
+        ax.set_axisbelow(True)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_color("#CBD5E1")
+        ax.spines["bottom"].set_color("#CBD5E1")
+        ax.tick_params(axis="x", labelsize=8, colors="#475569")
+
+        r, g, b = brand_rgb
+        hex_accent = f"#{r:02x}{g:02x}{b:02x}"
+        ax.set_title("5-Pillar Readiness Scores (Red <50  |  Amber 50-69  |  Green 70+)", fontsize=9.5, fontweight="bold", color=hex_accent, loc="left", pad=8)
+
+        for bar, val in zip(bars, scores):
+            ax.text(val + 1.8, bar.get_y() + bar.get_height() / 2, f"{val}/100", va="center", ha="left", fontsize=8.5, fontweight="bold", color="#1E293B")
+
+        plt.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format="PNG", dpi=180)
+        plt.close(fig)
+        return buf.getvalue()
+    except Exception:
+        return None
+
+
 def _clean_pdf_text(text: str) -> str:
     if not text:
         return ""
+    text = _sanitize_display_text(text)
     replacements = {
         "\u2014": "-", "\u2013": "-", "\u2018": "'", "\u2019": "'",
         "\u201c": '"', "\u201d": '"', "\u2022": "-", "\u2026": "...",
@@ -1588,172 +1730,359 @@ def _clean_pdf_text(text: str) -> str:
     }
     for k, v in replacements.items():
         text = text.replace(k, v)
-    text = text.replace("---DEEP_DIVE---", "\nDeep-Dive Notes:\n")
     text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
     text = re.sub(r"`(.*?)`", r"\1", text)
     return text.encode("latin-1", "ignore").decode("latin-1").strip()
 
 
+def _infer_col_widths(headers: list[str], usable_w: float) -> tuple[float, ...]:
+    n = len(headers)
+    if n == 0:
+        return ()
+    weights = []
+    for h in headers:
+        hl = h.lower()
+        if any(k in hl for k in ["score", "rank", "polarity", "severity"]):
+            weights.append(1.15)
+        elif any(k in hl for k in ["pillar", "lever", "variant", "platform", "stakeholder", "cluster", "channel", "module"]):
+            weights.append(2.2)
+        elif any(k in hl for k in ["metric", "kpi", "cohort", "persona"]):
+            weights.append(2.0)
+        else:
+            weights.append(3.4)
+    total = sum(weights)
+    return tuple(round((w / total) * usable_w, 2) for w in weights)
+
+
 class ExecutivePDF(FPDF):
-    def __init__(self, company_name: str, country_label: str = "", biz_model: str = ""):
+    def __init__(self, company_name: str, country_label: str = "", biz_model: str = "", brand_rgb: tuple[int, int, int] = (0, 113, 227)):
         super().__init__()
         self.company_name = _clean_pdf_text(company_name)
         self.country_label = _clean_pdf_text(country_label)
         self.biz_model = _clean_pdf_text(biz_model)
+        self.brand_rgb = brand_rgb
 
     def header(self):
-        self.set_font("Helvetica", "B", 9)
+        if self.page_no() == 1:
+            return
+        r, g, b = self.brand_rgb
+        self.set_fill_color(r, g, b)
+        self.rect(0, 0, self.w, 3, style="F")
+        self.set_y(6)
+        self.set_font("Helvetica", "B", 8)
         self.set_text_color(110, 110, 115)
-        geo_tag = f" ({self.country_label.upper()})" if self.country_label else ""
-        model_tag = f" [{self.biz_model}]" if self.biz_model else ""
-        self.cell(0, 8, _clean_pdf_text(f"EXECUTIVE INTELLIGENCE BRIEF  |  {self.company_name.upper()}{geo_tag}{model_tag}"), align="L")
-        self.ln(10)
+        geo_tag = f"  |  {self.country_label.upper()}" if self.country_label else ""
+        model_tag = f"  |  {self.biz_model}" if self.biz_model else ""
+        self.cell(0, 6, _clean_pdf_text(f"EXECUTIVE INTELLIGENCE BRIEF  |  {self.company_name.upper()}{geo_tag}{model_tag}"), align="L")
+        self.ln(9)
 
     def footer(self):
-        self.set_y(-14)
-        self.set_font("Helvetica", "", 8)
-        self.set_text_color(142, 142, 147)
-        self.cell(0, 8, _clean_pdf_text(f"Soumya Ranjan Nayak   |   Page {self.page_no()}"), align="C")
-
-    def section_title(self, title: str):
-        self.ln(3)
-        self.set_font("Helvetica", "B", 13)
-        self.set_text_color(29, 29, 31)
-        self.cell(0, 8, _clean_pdf_text(title), new_x="LMARGIN", new_y="NEXT")
-        self.set_draw_color(210, 210, 215)
+        self.set_y(-13)
+        self.set_draw_color(225, 225, 230)
         self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
+        self.set_font("Helvetica", "", 8)
+        self.set_text_color(130, 130, 135)
+        self.cell(0, 8, _clean_pdf_text(f"Prepared by Soumya Ranjan Nayak   |   Executive Summary & Appendix   |   Page {self.page_no()}"), align="C")
+
+    def section_banner(self, num_label: str, title: str, score_str: str | None = None):
+        if self.get_y() > self.h - 45:
+            self.add_page()
         self.ln(4)
+        r, g, b = self.brand_rgb
+        y0 = self.get_y()
+        self.set_fill_color(246, 247, 250)
+        self.rect(self.l_margin, y0, self.w - self.l_margin - self.r_margin, 11, style="F")
+        self.set_fill_color(r, g, b)
+        self.rect(self.l_margin, y0, 2.5, 11, style="F")
+
+        self.set_xy(self.l_margin + 5, y0 + 2)
+        self.set_font("Helvetica", "B", 11.5)
+        self.set_text_color(29, 29, 31)
+        header_txt = f"{num_label}. {title}" if num_label else title
+        if score_str:
+            header_txt += f"   [{score_str}/100]"
+        self.cell(0, 7, _clean_pdf_text(header_txt))
+        self.set_y(y0 + 14)
+
+    def sub_heading(self, title: str):
+        if self.get_y() > self.h - 32:
+            self.add_page()
+        self.ln(2)
+        r, g, b = self.brand_rgb
+        self.set_font("Helvetica", "B", 10)
+        self.set_text_color(r, g, b)
+        self.cell(0, 6, _clean_pdf_text(title), new_x="LMARGIN", new_y="NEXT")
+        self.ln(1)
+
+    def render_table(self, table_rows: list[list[str]]):
+        if not table_rows:
+            return
+        col_count = max(len(r) for r in table_rows)
+        normalized = [r + [""] * (col_count - len(r)) for r in table_rows]
+        usable_w = self.w - self.l_margin - self.r_margin
+        col_widths = _infer_col_widths(normalized[0], usable_w)
+
+        score_col_indices = {
+            idx for idx, h in enumerate(normalized[0])
+            if "score" in h.lower()
+        }
+
+        r, g, b = self.brand_rgb
+        self.set_font("Helvetica", "", 8.2)
+        self.set_draw_color(218, 220, 226)
+
+        with self.table(
+            col_widths=col_widths,
+            text_align="LEFT",
+            line_height=4.4,
+            padding=(2.2, 2.5, 2.2, 2.5),
+            borders_layout="HORIZONTAL_LINES",
+            first_row_as_headings=True,
+            repeat_headings=1,
+        ) as tbl:
+            for row_idx, row_data in enumerate(normalized):
+                row = tbl.row()
+                for c_idx, cell_val in enumerate(row_data):
+                    clean_val = _clean_pdf_text(cell_val)
+                    if row_idx == 0:
+                        self.set_font("Helvetica", "B", 8.3)
+                        self.set_text_color(255, 255, 255)
+                        self.set_fill_color(r, g, b)
+                    elif c_idx in score_col_indices and re.search(r"\d+", clean_val):
+                        bg_rgb, fg_rgb = _score_tier_rgb(clean_val)
+                        self.set_font("Helvetica", "B", 8.2)
+                        self.set_fill_color(*bg_rgb)
+                        self.set_text_color(*fg_rgb)
+                    else:
+                        self.set_font("Helvetica", "", 8.1)
+                        self.set_text_color(38, 38, 42)
+                        if row_idx % 2 == 0:
+                            self.set_fill_color(248, 249, 252)
+                        else:
+                            self.set_fill_color(255, 255, 255)
+                    row.cell(clean_val)
+        self.ln(3)
+
+    def render_callout_bullet(self, raw_bullet: str):
+        cleaned = _clean_pdf_text(raw_bullet)
+        if self.get_y() > self.h - 26:
+            self.add_page()
+        r, g, b = self.brand_rgb
+        x0 = self.l_margin
+        y0 = self.get_y()
+        self.set_fill_color(r, g, b)
+        self.rect(x0 + 1.5, y0 + 1.8, 1.5, 1.5, style="F")
+        self.set_xy(x0 + 5, y0)
+        self.set_font("Helvetica", "", 9)
+        self.set_text_color(34, 34, 38)
+        self.multi_cell(self.w - self.l_margin - self.r_margin - 5, 4.8, cleaned)
+        self.ln(1.2)
+
+    def render_problem_fix_card(self, raw_line: str):
+        cleaned = _clean_pdf_text(raw_line)
+        if self.get_y() > self.h - 32:
+            self.add_page()
+        r, g, b = self.brand_rgb
+        x0 = self.l_margin
+        y0 = self.get_y()
+        w_box = self.w - self.l_margin - self.r_margin
+
+        if "->" in cleaned and ":" in cleaned:
+            head, body = cleaned.split(":", 1)
+            self.set_font("Helvetica", "B", 8.8)
+            self.set_text_color(r, g, b)
+            self.set_x(x0 + 3)
+            self.multi_cell(w_box - 4, 4.6, head.strip())
+            self.set_font("Helvetica", "", 8.6)
+            self.set_text_color(44, 44, 48)
+            self.set_x(x0 + 3)
+            self.multi_cell(w_box - 4, 4.5, body.strip())
+        else:
+            self.set_font("Helvetica", "", 8.6)
+            self.set_text_color(44, 44, 48)
+            self.set_x(x0 + 3)
+            self.multi_cell(w_box - 4, 4.5, cleaned)
+
+        y1 = self.get_y()
+        self.set_draw_color(r, g, b)
+        self.set_line_width(0.6)
+        self.line(x0 + 1, y0 + 0.5, x0 + 1, y1 - 0.5)
+        self.set_line_width(0.2)
+        self.ln(2.2)
 
     def render_markdown_block(self, md_text: str):
-        lines = _clean_pdf_text(md_text).splitlines()
-        table_rows = []
+        parts = (md_text or "").split("---DEEP_DIVE---")
+        for p_idx, part in enumerate(parts):
+            if p_idx == 1 and part.strip():
+                self.sub_heading("Strategic Deep Dive & Action Playbook")
+            lines = part.splitlines()
+            table_rows: list[list[str]] = []
 
-        def flush_table():
-            nonlocal table_rows
-            if not table_rows:
-                return
-            col_count = max(len(r) for r in table_rows)
-            usable_w = self.w - self.l_margin - self.r_margin
-            col_w = usable_w / max(1, col_count)
-            for idx, row in enumerate(table_rows):
-                if idx == 0:
-                    self.set_fill_color(245, 245, 247)
-                    self.set_font("Helvetica", "B", 8.5)
-                    self.set_text_color(29, 29, 31)
-                else:
-                    self.set_fill_color(255, 255, 255)
-                    self.set_font("Helvetica", "", 8.5)
-                    self.set_text_color(51, 51, 54)
-                padded = row + [""] * (col_count - len(row))
-                max_lines = max(1, *(int(len(c) / max(10, (col_w / 2.0))) + 1 for c in padded))
-                row_h = max_lines * 4.8
-                if self.get_y() + row_h > self.h - 20:
-                    self.add_page()
-                y_start = self.get_y()
-                x_start = self.l_margin
-                for c_i, cell_txt in enumerate(padded):
-                    self.set_xy(x_start + c_i * col_w, y_start)
-                    self.multi_cell(col_w, 4.6, _clean_pdf_text(cell_txt), border=1, fill=(idx == 0))
-                self.set_y(y_start + row_h)
-            self.ln(3)
-            table_rows = []
-
-        for raw_line in lines:
-            line = raw_line.strip()
-            if not line:
-                flush_table()
-                self.ln(2)
-                continue
-            if line.startswith("|") and line.endswith("|"):
-                cells = [c.strip() for c in line.strip("|").split("|")]
-                if all(set(c) <= set("-: ") for c in cells):
+            for raw_line in lines:
+                line = raw_line.strip()
+                if not line:
+                    if table_rows:
+                        self.render_table(table_rows)
+                        table_rows = []
                     continue
-                table_rows.append(cells)
-                continue
-            flush_table()
-            if line.startswith("#"):
-                self.set_font("Helvetica", "B", 11)
-                self.set_text_color(0, 113, 227)
-                self.multi_cell(0, 6, _clean_pdf_text(line.lstrip("#").strip()))
-                self.ln(1)
-            elif line.startswith("- ") or line.startswith("* "):
-                self.set_font("Helvetica", "", 9.5)
-                self.set_text_color(29, 29, 31)
-                self.multi_cell(0, 5.5, _clean_pdf_text(f"  -  {line[2:].strip()}"))
-                self.ln(1)
-            else:
-                self.set_font("Helvetica", "", 9.5)
-                self.set_text_color(44, 44, 46)
-                self.multi_cell(0, 5.5, _clean_pdf_text(line))
-                self.ln(1)
 
-        flush_table()
+                if line.startswith("|") and line.endswith("|"):
+                    cells = [c.strip() for c in line.strip("|").split("|")]
+                    if all(set(c) <= set("-: ") for c in cells):
+                        continue
+                    table_rows.append(cells)
+                    continue
+
+                if table_rows:
+                    self.render_table(table_rows)
+                    table_rows = []
+
+                if line.startswith("#"):
+                    self.sub_heading(line.lstrip("#").strip())
+                elif line.startswith("- ") or line.startswith("* "):
+                    item_txt = line[2:].strip()
+                    if "Problem -> Fix" in item_txt or "Problem → Fix" in item_txt:
+                        self.render_problem_fix_card(item_txt)
+                    else:
+                        self.render_callout_bullet(item_txt)
+                else:
+                    self.set_font("Helvetica", "", 9.2)
+                    self.set_text_color(44, 44, 48)
+                    self.multi_cell(0, 4.9, _clean_pdf_text(line))
+                    self.ln(1.5)
+
+            if table_rows:
+                self.render_table(table_rows)
 
 
 def build_executive_pdf(audit_data: dict) -> bytes:
     company = audit_data.get("company", "Brand")
     country_lbl = audit_data.get("country", "")
     biz_model = audit_data.get("biz_model", "B2C / DTC")
-    pdf = ExecutivePDF(company, country_label=country_lbl, biz_model=biz_model)
-    pdf.set_auto_page_break(auto=True, margin=18)
+    official_url = audit_data.get("official_url", "")
+    hooks = audit_data.get("hooks") or {}
+    bl = audit_data.get("brand_logo") or {}
+    logo_bytes = bl.get("bytes") if bl.get("ok") else None
+
+    brand_rgb = _extract_brand_rgb(logo_bytes)
+    r, g, b = brand_rgb
+
+    pdf = ExecutivePDF(company, country_label=country_lbl, biz_model=biz_model, brand_rgb=brand_rgb)
+    pdf.set_margins(14, 14, 14)
+    pdf.set_auto_page_break(auto=True, margin=16)
     pdf.add_page()
 
-    pdf.set_font("Helvetica", "B", 20)
-    pdf.set_text_color(29, 29, 31)
-    pdf.cell(0, 10, _clean_pdf_text(company), new_x="LMARGIN", new_y="NEXT")
+    # SECTION 1 OF PDF: EXECUTIVE SUMMARY
+    pdf.set_fill_color(r, g, b)
+    pdf.rect(0, 0, pdf.w, 6, style="F")
 
-    pdf.set_font("Helvetica", "", 10.5)
-    pdf.set_text_color(110, 110, 115)
-    geo_part = f"  -  Market: {country_lbl}" if country_lbl else "  -  Market: Global / All Markets"
-    subtitle_line = _clean_pdf_text(f"Executive Intelligence Brief{geo_part}  |  Model: {biz_model}  |  {datetime.now().strftime('%B %d, %Y')}")
-    pdf.cell(0, 7, subtitle_line, new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(3)
+    temp_files = []
+    try:
+        y_top = 14
+        x_cursor = pdf.l_margin
+        if logo_bytes:
+            tmp_logo = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+            tmp_logo.write(logo_bytes)
+            tmp_logo.close()
+            temp_files.append(tmp_logo.name)
+            pdf.set_fill_color(242, 243, 247)
+            pdf.rect(x_cursor, y_top, 26, 14, style="F")
+            pdf.image(tmp_logo.name, x=x_cursor + 2, y=y_top + 2, h=10)
+            x_cursor += 30
 
-    sections = [
-        ("1. SEO, AEO & GEO", audit_data.get("e1")),
-        ("2. Paid Search & CRO", audit_data.get("e_paid")),
-        ("3. Pricing & Unit Economics", audit_data.get("e2")),
-        ("4. Ad Creative Studio", audit_data.get("e3")),
-        ("5. Social & Brand Triage", audit_data.get("e4")),
-    ]
-    for title, item in sections:
-        if item and item.get("ok"):
-            pdf.section_title(title)
-            pdf.render_markdown_block(item["content"])
+        pdf.set_xy(x_cursor, y_top)
+        pdf.set_font("Helvetica", "B", 20)
+        pdf.set_text_color(29, 29, 31)
+        pdf.cell(0, 9, _clean_pdf_text(company), new_x="LMARGIN", new_y="NEXT")
 
-    images_to_embed = [
-        ("Paid Social Ad (1:1)", audit_data.get("img_meta"), 95),
-        ("Display Banner (16:9)", audit_data.get("img_banner"), 150),
-        ("4-Second Video Hook Keyframe (16:9)", audit_data.get("img_hook_frame"), 150),
-    ]
-    valid_imgs = [(lbl, it, w) for lbl, it, w in images_to_embed if it and it.get("ok") and it.get("bytes")]
-    if valid_imgs:
+        pdf.set_x(x_cursor)
+        pdf.set_font("Helvetica", "", 9.5)
+        pdf.set_text_color(100, 100, 108)
+        geo_part = f"Market: {country_lbl}" if country_lbl else "Market: Global"
+        meta_line = f"{official_url}  |  {biz_model}  |  {geo_part}  |  {datetime.now().strftime('%B %d, %Y')}"
+        pdf.cell(0, 6, _clean_pdf_text(meta_line), new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(5)
+
+        pdf.section_banner("", "Executive Summary: 5-Pillar Scorecard")
+
+        score_rows = [["Diagnostic Pillar", "Score /100", "Primary Strategic Priority"]]
+        module_meta = [
+            ("seo", "Organic Search (SEO, AEO & GEO)"),
+            ("paid", "Paid Search & Funnel CRO"),
+            ("pricing", "Pricing & Unit Economics"),
+            ("creative", "Ad Creative Studio"),
+            ("social", "Social & Brand Triage"),
+        ]
+        for m_key, m_title in module_meta:
+            sc_val, one_liner = hooks.get(m_key, ("65", "See appendix for full diagnostics."))
+            score_rows.append([m_title, f"{sc_val} / 100", one_liner])
+        pdf.render_table(score_rows)
+
+        chart_png = _render_pillar_score_chart_png(hooks, brand_rgb)
+        if chart_png:
+            tmp_chart = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+            tmp_chart.write(chart_png)
+            tmp_chart.close()
+            temp_files.append(tmp_chart.name)
+            if pdf.get_y() + 56 > pdf.h - 18:
+                pdf.add_page()
+            pdf.image(tmp_chart.name, x=pdf.l_margin, y=pdf.get_y(), w=pdf.w - pdf.l_margin - pdf.r_margin)
+            pdf.ln(58)
+
+        pdf.sub_heading("Key Executive Priorities")
+        for m_key, m_title in module_meta:
+            sc_val, one_liner = hooks.get(m_key, ("65", ""))
+            if one_liner:
+                pdf.render_callout_bullet(f"{m_title} ({sc_val}/100): {one_liner}")
+
+        # SECTION 2 OF PDF: APPENDIX (DETAILED MODULES & CREATIVES)
         pdf.add_page()
-        pdf.section_title("6. Generated Ad Creatives")
-        temp_files = []
-        try:
+        pdf.section_banner("APPENDIX", "Detailed Module Diagnostics, Playbooks & Creatives")
+
+        sections = [
+            ("A.1", "SEO, AEO & GEO", "seo", audit_data.get("e1")),
+            ("A.2", "Paid Search & Funnel CRO", "paid", audit_data.get("e_paid")),
+            ("A.3", "Pricing & Unit Economics", "pricing", audit_data.get("e2")),
+            ("A.4", "Ad Creative Studio", "creative", audit_data.get("e3")),
+            ("A.5", "Social & Brand Triage", "social", audit_data.get("e4")),
+        ]
+        for num_lbl, sec_title, m_key, item in sections:
+            if item and item.get("ok"):
+                sc_val = hooks.get(m_key, ("", ""))[0]
+                pdf.section_banner(num_lbl, sec_title, score_str=sc_val)
+                pdf.render_markdown_block(item["content"])
+
+        images_to_embed = [
+            ("Paid Social Creative (1:1)", audit_data.get("img_meta"), 88),
+            ("Display / Demand Banner (16:9)", audit_data.get("img_banner"), 142),
+            ("4-Second Video Hook Keyframe (16:9)", audit_data.get("img_hook_frame"), 142),
+        ]
+        valid_imgs = [(lbl, it, w) for lbl, it, w in images_to_embed if it and it.get("ok") and it.get("bytes")]
+        if valid_imgs:
+            pdf.add_page()
+            pdf.section_banner("A.6", "Generated Brand Creative Prototypes")
             for lbl, it, w in valid_imgs:
-                if pdf.get_y() > 205:
+                if pdf.get_y() > 195:
                     pdf.add_page()
-                pdf.set_font("Helvetica", "B", 10.5)
-                pdf.cell(0, 7, _clean_pdf_text(lbl), new_x="LMARGIN", new_y="NEXT")
+                pdf.sub_heading(lbl)
                 tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
                 tmp.write(it["bytes"])
                 tmp.close()
                 temp_files.append(tmp.name)
-                pdf.image(tmp.name, w=w)
-                pdf.ln(6)
-        finally:
-            for p in temp_files:
-                if os.path.exists(p):
-                    os.remove(p)
+                y_img = pdf.get_y()
+                pdf.image(tmp.name, x=pdf.l_margin, y=y_img, w=w)
+                pdf.set_y(pdf.get_y() + (w * 0.58 if w > 100 else w) + 6)
+    finally:
+        for p in temp_files:
+            if os.path.exists(p):
+                os.remove(p)
 
     raw_out = pdf.output()
     return bytes(raw_out) if isinstance(raw_out, (bytes, bytearray)) else raw_out.encode("latin-1")
 
 
 def get_cached_pdf_bytes(audit_data: dict) -> bytes:
-    cache_map = st.session_state.setdefault("pdf_cache_v2", {})
+    cache_map = st.session_state.setdefault("pdf_cache_v3", {})
     key = f"{_scope_prefix(audit_data.get('company', 'brand'), audit_data.get('country', ''), audit_data.get('biz_model', 'B2C / DTC'))}__{audit_data.get('is_showcase', False)}"
     if key not in cache_map:
         cache_map[key] = build_executive_pdf(audit_data)
@@ -1812,6 +2141,7 @@ def run_live_audit(company: str, country: str = "", biz_model: str = "B2C / DTC"
         Act as Principal SEO, AEO, and GEO Architect auditing {company} ({official_url}).
         {model_rule}
         {geo_rule}
+        {NO_LATEX_CURRENCY_RULE}
         STRICT FORMATTING:
         - Start with:
           | Search Pillar | Score /100 | Observable Diagnostic Signal | Primary Gap |
@@ -1823,6 +2153,7 @@ def run_live_audit(company: str, country: str = "", biz_model: str = "B2C / DTC"
         Act as VP of Performance Marketing & Conversion auditing {company} ({official_url}).
         {model_rule}
         {geo_rule}
+        {NO_LATEX_CURRENCY_RULE}
         STRICT FORMATTING:
         - Start with:
           | Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal | Primary Leakage |
@@ -1834,6 +2165,7 @@ def run_live_audit(company: str, country: str = "", biz_model: str = "B2C / DTC"
         Act as VP of Pricing & Commercial Strategy auditing {company} ({official_url}).
         {model_rule}
         {geo_rule}
+        {NO_LATEX_CURRENCY_RULE}
         STRICT FORMATTING:
         - Line 1: **{m_ctx["pricing_summary_label"]}:** [1 concise sentence].
         - Follow with:
@@ -1846,6 +2178,7 @@ def run_live_audit(company: str, country: str = "", biz_model: str = "B2C / DTC"
         Act as VP of Performance Creative for {company}. Brand baseline: {brand_dna_text}
         {model_rule}
         {geo_rule}
+        {NO_LATEX_CURRENCY_RULE}
         STRICT FORMATTING (NO EMOJIS):
         - Output 1. Search / High-Intent Ad Pack (3 headlines <=30 chars + 2 descriptions <=90 chars), 2. Primary Paid Social Ad (Primary Text <=110 chars, Headline <=35 chars, CTA tailored to {clean_model}), 3. 4-Second Video Hook (Scene + <=12-word hook).
         - End with '---DEEP_DIVE---' followed by 3 bullets (`- **[Channel] Problem -> Fix:** ...`) and a 4-row A/B testing table (`| Ad Variant | Hook / Angle | Target Persona | Primary KPI |`).
@@ -1854,6 +2187,7 @@ def run_live_audit(company: str, country: str = "", biz_model: str = "B2C / DTC"
         Act as VP of Brand Reputation, Social Listening & Creator/Authority Partnerships auditing {company} ({official_url}).
         {model_rule}
         {geo_rule}
+        {NO_LATEX_CURRENCY_RULE}
         STRICT FORMATTING (NO EMOJIS):
         - Line 1: **Current Brand Sentiment Archetype:** [1 concise sentence].
         - Follow with:
@@ -1864,19 +2198,19 @@ def run_live_audit(company: str, country: str = "", biz_model: str = "B2C / DTC"
         """
 
         update_status(35, "Running SEO, AEO & GEO search module...")
-        e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v4", p1, preferred="gemini", use_search=True, use_url_context=True, country=clean_country, biz_model=clean_model)
+        e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v5", p1, preferred="gemini", use_search=True, use_url_context=True, country=clean_country, biz_model=clean_model)
 
         update_status(48, "Running Paid Search & Funnel CRO module...")
-        e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v3", p_paid, preferred="gemini", use_search=True, use_url_context=True, country=clean_country, biz_model=clean_model)
+        e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v4", p_paid, preferred="gemini", use_search=True, use_url_context=True, country=clean_country, biz_model=clean_model)
 
         update_status(60, "Running Pricing & Unit Economics module...")
-        e2 = get_or_generate_text_element(company, "agent2_pricing_v3", p2, preferred="gemini", use_search=True, use_url_context=True, country=clean_country, biz_model=clean_model)
+        e2 = get_or_generate_text_element(company, "agent2_pricing_v4", p2, preferred="gemini", use_search=True, use_url_context=True, country=clean_country, biz_model=clean_model)
 
         update_status(72, "Generating ad copy & creative angles...")
-        e3 = get_or_generate_text_element(company, "agent3_creative_v3", p3, preferred="gemini", country=clean_country, biz_model=clean_model)
+        e3 = get_or_generate_text_element(company, "agent3_creative_v4", p3, preferred="gemini", country=clean_country, biz_model=clean_model)
 
         update_status(84, "Auditing social sentiment & creator/authority roster...")
-        e4 = get_or_generate_text_element(company, "agent4_social_v3", p4, preferred="gemini", use_search=True, use_url_context=True, country=clean_country, biz_model=clean_model)
+        e4 = get_or_generate_text_element(company, "agent4_social_v4", p4, preferred="gemini", use_search=True, use_url_context=True, country=clean_country, biz_model=clean_model)
 
         img_meta = img_banner = img_hook_frame = None
         if GENERATE_IMAGES_DEFAULT:
@@ -1884,9 +2218,9 @@ def run_live_audit(company: str, country: str = "", biz_model: str = "B2C / DTC"
             logo_bytes = brand_logo["bytes"] if brand_logo["ok"] else None
             geo_img_note = f" Market context: {clean_country}." if clean_country else ""
             model_img_note = f" Business model context: {clean_model}."
-            img_meta = get_or_generate_image_element(company, "meta_ad_1x1_v4", f"Clean 1:1 paid social ad for {company}.{geo_img_note}{model_img_note} {brand_dna_text} Max 2 clean UI elements.", "1:1", logo_bytes, country=clean_country, biz_model=clean_model)
-            img_banner = get_or_generate_image_element(company, "banner_ad_16x9_v4", f"Clean 16:9 display banner for {company}.{geo_img_note}{model_img_note} {brand_dna_text} Max 2 clean UI elements.", "16:9", logo_bytes, country=clean_country, biz_model=clean_model)
-            img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9_v4", f"Clean 16:9 4-second video hook opening frame for {company}.{geo_img_note}{model_img_note} {brand_dna_text} Max 2 clean UI overlays.", "16:9", logo_bytes, country=clean_country, biz_model=clean_model)
+            img_meta = get_or_generate_image_element(company, "meta_ad_1x1_v5", f"Clean 1:1 paid social ad for {company}.{geo_img_note}{model_img_note} {brand_dna_text} Max 2 clean UI elements.", "1:1", logo_bytes, country=clean_country, biz_model=clean_model)
+            img_banner = get_or_generate_image_element(company, "banner_ad_16x9_v5", f"Clean 16:9 display banner for {company}.{geo_img_note}{model_img_note} {brand_dna_text} Max 2 clean UI elements.", "16:9", logo_bytes, country=clean_country, biz_model=clean_model)
+            img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9_v5", f"Clean 16:9 4-second video hook opening frame for {company}.{geo_img_note}{model_img_note} {brand_dna_text} Max 2 clean UI overlays.", "16:9", logo_bytes, country=clean_country, biz_model=clean_model)
 
         update_status(100, "Audit complete.")
     finally:
@@ -2021,9 +2355,9 @@ pending_step = st.session_state.get("pending_model_step")
 if isinstance(pending_step, dict) and pending_step.get("company"):
     st.markdown(f"""
     <div class="model-detect-banner">
-        <strong>Step 2 — Confirm or Override Business Model for {pending_step['company']}</strong>
+        <strong>Step 2 — Confirm or Override Business Model for {_sanitize_display_text(pending_step['company'])}</strong>
         <span style="color:#6E6E73;"> ({pending_step.get('official_url', '')})</span><br/>
-        <span style="color:#424245;">Auto-detected: <strong>{pending_step.get('detected_model', 'B2C / DTC')}</strong> — {pending_step.get('reason', '')}</span>
+        <span style="color:#424245;">Auto-detected: <strong>{pending_step.get('detected_model', 'B2C / DTC')}</strong> — {_sanitize_display_text(pending_step.get('reason', ''))}</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2108,7 +2442,7 @@ with h_left:
         logo_img_html = f'<img src="data:image/png;base64,{b64}" style="height:28px;width:auto;margin-right:10px;vertical-align:middle;" />'
     geo_badge = f"  •  Geo: {country_val}" if country_val else "  •  Geo: Global"
     mode_badge = "Sample Preset" if audit.get("is_showcase") else "Live Audit"
-    st.markdown(f"<h2>{logo_img_html}{company}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2>{logo_img_html}{_sanitize_display_text(company)}</h2>", unsafe_allow_html=True)
     st.caption(f"{official_url}  •  {biz_model_val}  •  {mode_badge}{geo_badge}")
 
 with h_right:
@@ -2164,7 +2498,7 @@ with h_right:
                         st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5 PURELY CLICKABLE UNIFORM BENTO TILES
+# 5 PURELY CLICKABLE UNIFORM BENTO TILES (COLOR-CODED SCORE TIERS)
 # -----------------------------------------------------------------------------
 selected_bento = st.session_state.get("selected_bento_v5")
 
@@ -2175,14 +2509,15 @@ def render_uniform_bento_row(keys: list[str]):
         with cols[i]:
             h_pair = hooks.get(m_key, ("65", "Click tile to view module diagnostics."))
             sc_val = str(h_pair[0]) if len(h_pair) > 0 else "65"
-            one_line = str(h_pair[1]) if len(h_pair) > 1 else ""
+            one_line = _sanitize_display_text(str(h_pair[1])) if len(h_pair) > 1 else ""
             is_sel = (selected_bento == m_key)
             card_cls = "bento-card bento-card-selected" if is_sel else "bento-card"
+            tier_cls = _score_tier_css(sc_val)
             st.markdown(f"""
             <div class="{card_cls}">
                 <div class="bento-header">
                     <span class="bento-pillar">{MODULE_LABELS[m_key]}</span>
-                    <span class="bento-score">{sc_val}/100</span>
+                    <span class="bento-score {tier_cls}">{sc_val}/100</span>
                 </div>
                 <div class="bento-oneliner">{one_line}</div>
             </div>
@@ -2247,7 +2582,7 @@ if selected_bento in key_lookup:
 
         if selected_bento == "creative" and audit.get("brand_intel"):
             st.markdown("### Brand Design Language & Creative Baseline")
-            st.markdown(audit["brand_intel"])
+            st.markdown(_sanitize_display_text(audit["brand_intel"]))
             q = quote_plus(company)
             reg = resolve_region_code(country_val)
             meta_country_param = f"&country={reg}" if reg != "ALL" else ""
@@ -2258,7 +2593,8 @@ if selected_bento in key_lookup:
             )
             st.markdown("### Next-Gen Ad Copy & Hooks")
 
-        parts = item["content"].split("---DEEP_DIVE---")
+        clean_content = _sanitize_display_text(item["content"])
+        parts = clean_content.split("---DEEP_DIVE---")
         st.markdown(parts[0].strip())
         if len(parts) > 1 and parts[1].strip():
             with st.expander(MODULE_DEEP_TITLES[selected_bento], expanded=False):
