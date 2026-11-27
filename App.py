@@ -48,9 +48,7 @@ def _sanitize_display_text(text: str) -> str:
     if not text:
         return ""
     cleaned = text
-    # Strip accidental LaTeX math delimiters around currency/numbers like $250K$ or $3,00,000$
     cleaned = re.sub(r"\$([^$\n]{1,60})\$", r"\1", cleaned)
-    # Normalize unicode arrows/dashes cleanly while preserving readability
     cleaned = cleaned.replace("\u2192", "->")
     return cleaned
 
@@ -59,10 +57,10 @@ def _score_tier_rgb(score_str: str) -> tuple[tuple[int, int, int], tuple[int, in
     digits = re.sub(r"[^\d]", "", str(score_str or ""))
     val = int(digits) if digits else 65
     if val < 50:
-        return (254, 226, 226), (153, 27, 27)   # Soft Red fill, dark red text
+        return (254, 226, 226), (153, 27, 27)
     if val < 70:
-        return (254, 243, 199), (146, 64, 14)   # Soft Amber fill, dark amber text
-    return (209, 250, 229), (6, 95, 70)        # Soft Emerald fill, dark green text
+        return (254, 243, 199), (146, 64, 14)
+    return (209, 250, 229), (6, 95, 70)
 
 
 def _score_tier_css(score_str: str) -> str:
@@ -304,7 +302,7 @@ def _model_guidance(biz_model: str) -> dict:
 
 
 # -----------------------------------------------------------------------------
-# UNIFIED TYPOGRAPHY, APPLE PILL BUTTONS & CLICKABLE BENTO CSS
+# UNIFIED TYPOGRAPHY, APPLE PILL BUTTONS & FULL-SURFACE CLICKABLE BENTO CSS
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -424,17 +422,18 @@ div[data-testid="stProgress"] > div > div > div > div {
     background-color: var(--apple-blue) !important;
 }
 
-/* Uniform clickable Bento cards with invisible full-surface click trigger */
+/* Full-surface clickable Bento card + hover feedback */
 .bento-card {
     background-color: #FFFFFF;
     border: 1.5px solid #E5E5EA;
     border-radius: 16px;
     padding: 1.05rem 1.1rem;
     height: 148px;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+    transition: border-color 0.14s ease, box-shadow 0.14s ease, background-color 0.14s ease;
 }
 
 .bento-card-selected {
@@ -494,20 +493,30 @@ div[data-testid="stProgress"] > div > div > div > div {
 
 div[data-testid="stElementContainer"]:has(.bento-card) {
     margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+div[data-testid="stElementContainer"]:has(.bento-card):hover .bento-card {
+    border-color: var(--apple-blue) !important;
+    box-shadow: 0 4px 12px rgba(0, 113, 227, 0.08) !important;
 }
 
 div[data-testid="stElementContainer"]:has(.bento-card) + div[data-testid="stElementContainer"] {
     margin-top: -148px !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
     height: 148px !important;
     position: relative !important;
-    z-index: 4 !important;
+    z-index: 10 !important;
 }
 
+div[data-testid="stElementContainer"]:has(.bento-card) + div[data-testid="stElementContainer"] > div,
 div[data-testid="stElementContainer"]:has(.bento-card) + div[data-testid="stElementContainer"] div[data-testid="stButton"],
 div[data-testid="stElementContainer"]:has(.bento-card) + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button {
     width: 100% !important;
     height: 148px !important;
     min-height: 148px !important;
+    max-height: 148px !important;
     opacity: 0 !important;
     cursor: pointer !important;
     border-radius: 16px !important;
@@ -672,8 +681,6 @@ MODULE_GOV = {
 
 def _sample_item(content: str, engine: str = "Curated Snapshot (US)"):
     return {"ok": True, "content": content, "engine": engine, "from_cache": True, "age": "curated US", "error": None}
-
-
 def build_sample_showcase(brand_key: str) -> dict:
     if brand_key == "enphase":
         return {
@@ -1972,7 +1979,6 @@ def build_executive_pdf(audit_data: dict) -> bytes:
     pdf.set_auto_page_break(auto=True, margin=16)
     pdf.add_page()
 
-    # SECTION 1 OF PDF: EXECUTIVE SUMMARY
     pdf.set_fill_color(r, g, b)
     pdf.rect(0, 0, pdf.w, 6, style="F")
 
@@ -2035,7 +2041,6 @@ def build_executive_pdf(audit_data: dict) -> bytes:
             if one_liner:
                 pdf.render_callout_bullet(f"{m_title} ({sc_val}/100): {one_liner}")
 
-        # SECTION 2 OF PDF: APPENDIX (DETAILED MODULES & CREATIVES)
         pdf.add_page()
         pdf.section_banner("APPENDIX", "Detailed Module Diagnostics, Playbooks & Creatives")
 
@@ -2121,12 +2126,13 @@ def run_live_audit(company: str, country: str = "", biz_model: str = "B2C / DTC"
     bar_slot = st.empty()
 
     def update_status(pct: int, stage_title: str):
-        progress_slot.markdown(f"""
-        <div class="status-panel">
-            <span class="status-step-label">{stage_title}</span>
-            <span class="status-pct-pill">{pct}%</span>
-        </div>
-        """, unsafe_allow_html=True)
+        progress_slot.markdown(
+            f"<div class='status-panel'>"
+            f"<span class='status-step-label'>{stage_title}</span>"
+            f"<span class='status-pct-pill'>{pct}%</span>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
         bar_slot.progress(min(100, max(0, pct)))
 
     try:
@@ -2281,12 +2287,11 @@ def run_live_audit(company: str, country: str = "", biz_model: str = "B2C / DTC"
 # -----------------------------------------------------------------------------
 # HEADER, TWO-STEP LIVE AUDIT FLOW & SAMPLE PRESET ROW
 # -----------------------------------------------------------------------------
-st.markdown("""
-<div class="suite-title">Executive Intelligence Suite.</div>
-<p class="suite-subtitle">
-    Structured diagnostics across Organic Search (SEO/AEO/GEO), Paid Acquisition & CRO, Pricing Economics, Brand Creative, and Reputation Triage.
-</p>
-""", unsafe_allow_html=True)
+st.markdown(
+    '<div class="suite-title">Executive Intelligence Suite.</div>'
+    '<p class="suite-subtitle">Structured diagnostics across Organic Search (SEO/AEO/GEO), Paid Acquisition & CRO, Pricing Economics, Brand Creative, and Reputation Triage.</p>',
+    unsafe_allow_html=True,
+)
 
 if "selected_bento_v5" not in st.session_state:
     st.session_state["selected_bento_v5"] = None
@@ -2353,13 +2358,14 @@ with c_detect:
 # Step 2 Confirmation / Override Bar (appears once Step 1 detects the model)
 pending_step = st.session_state.get("pending_model_step")
 if isinstance(pending_step, dict) and pending_step.get("company"):
-    st.markdown(f"""
-    <div class="model-detect-banner">
-        <strong>Step 2 — Confirm or Override Business Model for {_sanitize_display_text(pending_step['company'])}</strong>
-        <span style="color:#6E6E73;"> ({pending_step.get('official_url', '')})</span><br/>
-        <span style="color:#424245;">Auto-detected: <strong>{pending_step.get('detected_model', 'B2C / DTC')}</strong> — {_sanitize_display_text(pending_step.get('reason', ''))}</span>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="model-detect-banner">'
+        f'<strong>Step 2 — Confirm or Override Business Model for {_sanitize_display_text(pending_step["company"])}</strong>'
+        f'<span style="color:#6E6E73;"> ({pending_step.get("official_url", "")})</span><br/>'
+        f'<span style="color:#424245;">Auto-detected: <strong>{pending_step.get("detected_model", "B2C / DTC")}</strong> — {_sanitize_display_text(pending_step.get("reason", ""))}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
     m_sel_col, m_run_col = st.columns([3.3, 1.5], vertical_alignment="center")
     with m_sel_col:
@@ -2498,7 +2504,7 @@ with h_right:
                         st.rerun()
 
 # -----------------------------------------------------------------------------
-# 5 PURELY CLICKABLE UNIFORM BENTO TILES (COLOR-CODED SCORE TIERS)
+# 5 PURELY CLICKABLE UNIFORM BENTO TILES (FULL-SURFACE OVERLAY)
 # -----------------------------------------------------------------------------
 selected_bento = st.session_state.get("selected_bento_v5")
 
@@ -2513,15 +2519,16 @@ def render_uniform_bento_row(keys: list[str]):
             is_sel = (selected_bento == m_key)
             card_cls = "bento-card bento-card-selected" if is_sel else "bento-card"
             tier_cls = _score_tier_css(sc_val)
-            st.markdown(f"""
-            <div class="{card_cls}">
-                <div class="bento-header">
-                    <span class="bento-pillar">{MODULE_LABELS[m_key]}</span>
-                    <span class="bento-score {tier_cls}">{sc_val}/100</span>
-                </div>
-                <div class="bento-oneliner">{one_line}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="{card_cls}">'
+                f'<div class="bento-header">'
+                f'<span class="bento-pillar">{MODULE_LABELS[m_key]}</span>'
+                f'<span class="bento-score {tier_cls}">{sc_val}/100</span>'
+                f'</div>'
+                f'<div class="bento-oneliner">{one_line}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
             st.button(
                 MODULE_LABELS[m_key],
                 key=f"bento_tile_trigger_{m_key}",
@@ -2551,18 +2558,16 @@ if selected_bento in key_lookup:
 
     scroll_nonce = st.session_state.get("scroll_to_detail_nonce", 0)
     if scroll_nonce:
-        components.html(f"""
-        <script>
-        (function() {{
-            const _n = {int(scroll_nonce)};
-            const doc = window.parent && window.parent.document ? window.parent.document : document;
-            const target = doc.getElementById("detail-section-anchor");
-            if (target) {{
-                target.scrollIntoView({{ behavior: "smooth", block: "start" }});
-            }}
-        }})();
-        </script>
-        """, height=0)
+        components.html(
+            f"<script>"
+            f"(function() {{"
+            f"  const doc = window.parent && window.parent.document ? window.parent.document : document;"
+            f"  const target = doc.getElementById('detail-section-anchor');"
+            f"  if (target) {{ target.scrollIntoView({{ behavior: 'smooth', block: 'start' }}); }}"
+            f"}})();"
+            f"</script>",
+            height=0,
+        )
         st.session_state["scroll_to_detail_nonce"] = 0
 
     item = audit.get(key_lookup[selected_bento])
