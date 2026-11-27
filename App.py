@@ -231,7 +231,7 @@ html, body, .stApp, .stMarkdown, p, li, label, input, div, table, th, td {
 
 .block-container {
     max-width: 1080px !important;
-    padding-top: 2.2rem !important;
+    padding-top: 3.5rem !important;
     padding-bottom: 4rem !important;
 }
 
@@ -260,15 +260,6 @@ h3 {
     line-height: 1.3 !important;
     color: #1D1D1F !important;
     margin: 0.25rem 0 0.25rem 0 !important;
-}
-
-.suite-eyebrow {
-    font-size: 0.88rem !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.04em !important;
-    text-transform: uppercase !important;
-    color: var(--apple-blue) !important;
-    margin-bottom: 0.35rem !important;
 }
 
 .suite-subtitle {
@@ -1596,7 +1587,6 @@ def run_live_audit(company: str, country: str = ""):
 # HEADER, GEO-SCOPED LIVE AUDIT ROW & SEPARATE SAMPLE PRESET ROW
 # -----------------------------------------------------------------------------
 st.markdown("""
-<div class="suite-eyebrow">Soumya Ranjan Nayak • AI Growth & Pricing Architecture</div>
 <div class="suite-title">Executive Intelligence Suite.</div>
 <p class="suite-subtitle">
     Structured diagnostics across Organic Search (SEO/AEO/GEO), Paid Acquisition & CRO, Pricing Economics, Brand Creative, and Reputation Triage.
