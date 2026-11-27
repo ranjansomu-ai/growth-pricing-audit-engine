@@ -32,6 +32,12 @@ TTL_SECONDS = 2 * 24 * 3600  # 48 hours
 MAX_LOGO_BYTES = 5 * 1024 * 1024  # 5 MB
 os.makedirs(CACHE_DIR, exist_ok=True)
 
+BUSINESS_MODELS = [
+    "B2C / DTC",
+    "B2B / B2B SaaS",
+    "Hybrid / B2B2C",
+]
+
 
 def _get_secret(key: str, default: str = "") -> str:
     try:
@@ -80,7 +86,7 @@ def _is_valid_email(email: str) -> bool:
     return re.match(r"^[\w\.-]+@[\w\.-]+\.\w{2,}$", cleaned) is not None
 
 
-def _log_lead_to_sheet(email: str, company: str, country: str = "") -> tuple[bool, str]:
+def _log_lead_to_sheet(email: str, company: str, country: str = "", biz_model: str = "") -> tuple[bool, str]:
     if not GSHEET_ID:
         return False, "GSHEET_ID is not configured in Streamlit Secrets."
     creds = _get_gcp_credentials()
@@ -94,6 +100,7 @@ def _log_lead_to_sheet(email: str, company: str, country: str = "") -> tuple[boo
             email.strip(),
             company.strip(),
             (country or "Global").strip(),
+            (biz_model or "B2C / DTC").strip(),
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         ])
         return True, "Saved"
@@ -194,6 +201,73 @@ def resolve_region_code(country: str) -> str:
 
 
 # -----------------------------------------------------------------------------
+# BUSINESS MODEL CONTEXT & MODULE ADAPTATION RULES
+# -----------------------------------------------------------------------------
+def _model_guidance(biz_model: str) -> dict:
+    model = biz_model if biz_model in BUSINESS_MODELS else "B2C / DTC"
+    if model == "B2B / B2B SaaS":
+        return {
+            "label": "B2B / B2B SaaS",
+            "cro_pillar": "3. Landing Page, Demo/Trial & Pipeline CRO",
+            "checkout_pillar": "4. Lead Routing, Sales Handoff & Buying-Committee Friction",
+            "pricing_summary_label": "Current Monetization & Packaging Strategy",
+            "pricing_p1": "1. Core Plan, Seat/Usage Tier & ACV Positioning",
+            "pricing_p2": "2. Free Trial, Freemium & Implementation Fee Architecture",
+            "pricing_p3": "3. Expansion, NRR & Multi-Year Renewal Monetization",
+            "pricing_p4": "4. Enterprise Tier, Add-On Module & Services Mix",
+            "social_p1": "1. Pipeline Velocity, Demo/SQL & Post-Signup Sentiment",
+            "social_p2": "2. Category Authority, Security/ROI & Product Trust",
+            "social_p3": "3. G2 / Capterra / Peer Review & Forum Parity",
+            "social_p4": "4. Executive / Founder Advocacy & Customer Proof",
+            "prompt_context": (
+                "BUSINESS MODEL: Pure B2B / B2B SaaS. Focus on ICP precision, buying committees "
+                "(economic buyer, technical evaluator, end user, procurement), high-intent search vs. demand creation, "
+                "LinkedIn + Google Search mix, demo/trial-to-SQL conversion, speed-to-lead, ACV/seat/usage tiers, "
+                "CAC payback/NRR, G2/Capterra reviews, and executive/founder thought leadership. Avoid retail cart/COD/AOV jargon."
+            ),
+        }
+    if model == "Hybrid / B2B2C":
+        return {
+            "label": "Hybrid / B2B2C",
+            "cro_pillar": "3. Multi-Path Funnel & Partner/Direct CRO",
+            "checkout_pillar": "4. Order/Quote Routing, Partner Handoff & Fulfillment Friction",
+            "pricing_summary_label": "Current Dual-Channel & Partner Pricing Strategy",
+            "pricing_p1": "1. Direct vs. Partner / Channel Price Alignment",
+            "pricing_p2": "2. Freight, Installation/Onboarding & Threshold Architecture",
+            "pricing_p3": "3. Repeat Replenishment, Attach & Lifecycle Retention",
+            "pricing_p4": "4. High-Margin Bundles, Add-Ons & Commercial Program Mix",
+            "social_p1": "1. End-User & Partner Fulfillment / Handoff Sentiment",
+            "social_p2": "2. Technical / Product Reliability & Brand Trust",
+            "social_p3": "3. Consumer Review & B2B/Partner Reputation Parity",
+            "social_p4": "4. Community Advocacy, Partner Co-Marketing & Earned Proof",
+            "prompt_context": (
+                "BUSINESS MODEL: Hybrid / B2B2C (serves both end consumers/prosumers and business/partner/channel buyers). "
+                "Explicitly address both sides of the motion—direct conversion/checkout/CRO AND commercial/partner/installer "
+                "or multi-stakeholder demand—plus channel conflict, margin/attach economics, and two-sided trust."
+            ),
+        }
+    return {
+        "label": "B2C / DTC",
+        "cro_pillar": "3. Landing Page & Product-to-Cart CRO",
+        "checkout_pillar": "4. Checkout, Booking & Post-Click Friction",
+        "pricing_summary_label": "Current Pricing Strategy",
+        "pricing_p1": "1. Core SKU & Marketplace Price Positioning",
+        "pricing_p2": "2. Shipping, Fee & Basket Threshold Architecture",
+        "pricing_p3": "3. Subscription & Repeat-Cohort Monetization",
+        "pricing_p4": "4. Private-Label & High-Margin Service Mix",
+        "social_p1": "1. Fulfillment & Post-Purchase Sentiment",
+        "social_p2": "2. Clinical & Product Trust Authority",
+        "social_p3": "3. Review Ecosystem Parity",
+        "social_p4": "4. Community Advocacy & Earned Momentum",
+        "prompt_context": (
+            "BUSINESS MODEL: B2C / DTC. Focus on consumer purchase intent, AOV, cart/checkout conversion, "
+            "shipping/COD/fee friction, repeat replenishment/subscriptions, private-label/bundle margin, "
+            "consumer reviews, and creator/social engagement."
+        ),
+    }
+
+
+# -----------------------------------------------------------------------------
 # UNIFIED TYPOGRAPHY, APPLE PILL BUTTONS & CLICKABLE BENTO CSS
 # -----------------------------------------------------------------------------
 st.markdown("""
@@ -275,6 +349,14 @@ h3 {
     font-weight: 500 !important;
     color: #6E6E73 !important;
     padding-top: 0.3rem !important;
+}
+
+.model-detect-banner {
+    background-color: #FFFFFF;
+    border: 1px solid #D2D2D7;
+    border-radius: 14px;
+    padding: 0.85rem 1.1rem;
+    margin: 0.75rem 0 0.6rem 0;
 }
 
 .status-panel {
@@ -517,7 +599,7 @@ MODULE_LABELS = {
 
 MODULE_FULL_TITLES = {
     "seo": "Organic Search Intelligence: SEO, AEO & GEO",
-    "paid": "Paid Acquisition, Shopping & Funnel CRO",
+    "paid": "Paid Acquisition, Pipeline & Funnel CRO",
     "pricing": "Pricing Architecture & Unit Economics",
     "creative": "Ad Creative Studio & Next-Gen Hooks",
     "social": "Brand Reputation, Social Listening & Creator Partnerships",
@@ -533,10 +615,10 @@ MODULE_DEEP_TITLES = {
 
 MODULE_GOV = {
     "seo": "Diagnostic signals are synthesized via live search and URL context; verify exact counts and schema before distribution.",
-    "paid": "Benchmarks reflect observable storefront/ad signals and unit-economics heuristics; validate against live ad-account telemetry.",
-    "pricing": "Pricing signals reflect storefront and search observations; model contribution margin against internal COGS and freight rates.",
+    "paid": "Benchmarks reflect observable storefront/site signals and unit-economics heuristics; validate against live ad-account and CRM telemetry.",
+    "pricing": "Pricing signals reflect website and search observations; model contribution margin, ACV/payback, or freight rates against internal financials.",
     "creative": "Ad copy follows platform character caps; visual concepts are prototypes for creative direction and testing.",
-    "social": "Sentiment signals and creator suggestions are grounded via search; verify current metrics and ticket taxonomy before outreach.",
+    "social": "Sentiment signals and creator/authority suggestions are grounded via search; verify current metrics and escalation SLAs before outreach.",
 }
 
 
@@ -549,6 +631,7 @@ def build_sample_showcase(brand_key: str) -> dict:
         return {
             "company": "Enphase Energy",
             "country": "United States",
+            "biz_model": "Hybrid / B2B2C",
             "official_url": "https://enphase.com",
             "is_showcase": True,
             "hooks": {
@@ -561,8 +644,8 @@ def build_sample_showcase(brand_key: str) -> dict:
             "brand_logo": {"ok": False, "bytes": None, "source": None, "from_cache": False},
             "brand_intel": (
                 "- **Visual Design Language:** Crisp white surfaces, electric blue and emerald accents, clean technical cards, and bright US residential photography.\n"
-                "- **Meta & Social Ad Patterns:** US homeowner energy independence stories, outage protection hooks, and certified installer co-marketing.\n"
-                "- **Google Search & Shopping Messaging:** US microinverter reliability, battery storage readiness, and certified installer discovery.\n"
+                "- **Paid Social & Ad Patterns:** US homeowner energy independence stories, outage protection hooks, and certified installer co-marketing.\n"
+                "- **Search & Demand Messaging:** US microinverter reliability, battery storage readiness, and certified installer discovery.\n"
                 "- **Core Audience & Trust Triggers:** US homeowners and certified solar installers anchored by reliability and Enlighten app monitoring.\n\n"
                 "| Channel / Format | Current Baseline Pattern | Creative Fatigue / Gap | Next-Gen Hook Angle |\n"
                 "| --- | --- | --- | --- |\n"
@@ -599,10 +682,10 @@ def build_sample_showcase(brand_key: str) -> dict:
             "e_paid": _sample_item(
                 "| Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal (US) | Primary Leakage |\n"
                 "| --- | --- | --- | --- |\n"
-                "| 1. Non-Brand Search & PMax Efficiency | 65 | Strong US demand capture alongside broad hardware queries | Broad non-brand clicks before readiness check |\n"
+                "| 1. Non-Brand Search & Demand/PMax Efficiency | 65 | Strong US demand capture alongside broad hardware queries | Broad non-brand clicks before readiness check |\n"
                 "| 2. Paid Social Acquisition & Creative Fatigue | 61 | Clear visual assets; repeated hardware framing | US prospecting over-indexes on specs vs. outage/bill hooks |\n"
-                "| 3. Landing Page & Product-to-Cart CRO | 62 | Multi-step path to qualified US lead/quote | Friction before US homeowners see tailored system fit |\n"
-                "| 4. Checkout, Booking & Post-Click Friction | 64 | US partner routing in place; follow-up speed varies | Delayed US installer contact erodes lead conversion |\n\n"
+                "| 3. Multi-Path Funnel & Partner/Direct CRO | 62 | Multi-step path to qualified US lead/quote | Friction before US homeowners see tailored system fit |\n"
+                "| 4. Order/Quote Routing, Partner Handoff & Fulfillment Friction | 64 | US partner routing in place; follow-up speed varies | Delayed US installer contact erodes lead conversion |\n\n"
                 "- Separate US homeowner lead-gen from installer-focused campaigns.\n"
                 "- Lead US social hooks with outage protection and monthly bill control.\n"
                 "- Use 3 quick qualification inputs before US quote capture.\n"
@@ -622,13 +705,13 @@ def build_sample_showcase(brand_key: str) -> dict:
                 "| Dedicated US storage/backup search ad groups | Storage Lead Share | Blended Non-Brand CPA (USD) | +12-18% higher-AOV inquiry mix |"
             ),
             "e2": _sample_item(
-                "**Current Pricing Strategy:** In the US, Enphase pairs premium IQ8 microinverter and IQ Battery hardware pricing with multi-tier US installer commercial programs, volume incentives, and ongoing monitoring/energy-management value.\n\n"
+                "**Current Dual-Channel & Partner Pricing Strategy:** In the US, Enphase pairs premium IQ8 microinverter and IQ Battery hardware pricing with multi-tier US installer commercial programs, volume incentives, and ongoing monitoring/energy-management value.\n\n"
                 "| Pricing & Economics Pillar | Score /100 | Observable US Pricing Signal | Margin / LTV Leakage |\n"
                 "| --- | --- | --- | --- |\n"
-                "| 1. Core SKU & Marketplace Price Positioning | 68 | Premium US hardware anchored by reliability & warranty | Price pressure from lower-cost US string/hybrid options |\n"
-                "| 2. Shipping, Fee & Basket Threshold Architecture | 62 | US commercial/installer logistics and regional fulfillment | Freight/handling drag on smaller or split US orders |\n"
-                "| 3. Subscription & Repeat-Cohort Monetization | 63 | Ongoing monitoring and energy-management value | Under-monetized post-install upgrade touchpoints |\n"
-                "| 4. Private-Label & High-Margin Service Mix | 64 | Integrated microinverter, battery & smart energy stack | Attach-rate gap between solar core and US storage add-ons |\n\n"
+                "| 1. Direct vs. Partner / Channel Price Alignment | 68 | Premium US hardware anchored by reliability & warranty | Price pressure from lower-cost US string/hybrid options |\n"
+                "| 2. Freight, Installation/Onboarding & Threshold Architecture | 62 | US commercial/installer logistics and regional fulfillment | Freight/handling drag on smaller or split US orders |\n"
+                "| 3. Repeat Replenishment, Attach & Lifecycle Retention | 63 | Ongoing monitoring and energy-management value | Under-monetized post-install upgrade touchpoints |\n"
+                "| 4. High-Margin Bundles, Add-Ons & Commercial Program Mix | 64 | Integrated microinverter, battery & smart energy stack | Attach-rate gap between solar core and US storage add-ons |\n\n"
                 "- Bundle US microinverters, battery storage, and smart controls into clear tiers.\n"
                 "- Weight US installer volume rebates toward multi-product attach.\n"
                 "- Standardize transparent US commercial/freight terms across order tiers.\n"
@@ -648,13 +731,13 @@ def build_sample_showcase(brand_key: str) -> dict:
                 "| Post-Install Expansion Offers | US Enlighten app users | Milestone-triggered storage/EV upgrades | +15-22% expansion LTV | Keep prompts helpful, never intrusive |"
             ),
             "e3": _sample_item(
-                "1. **Google Search RSA Pack (US)**\n"
+                "1. **Search / High-Intent Ad Pack (US)**\n"
                 "- Headline 1: Smart Solar & Battery Systems\n"
                 "- Headline 2: Reliable Power When Grid Drops\n"
                 "- Headline 3: Connect With Certified US Pros\n"
                 "- Description 1: Protect your US home with reliable solar and battery storage. Get a tailored plan.\n"
                 "- Description 2: Monitor energy in real time and cut grid reliance. Request a home assessment.\n\n"
-                "2. **Meta Feed Ad (US)**\n"
+                "2. **Primary Paid Social Ad (US)**\n"
                 "- Primary Text: Keep lights, Wi-Fi, and essentials running smoothly with smart US solar + battery storage.\n"
                 "- Headline: Smart Solar + Backup Made Simple\n"
                 "- CTA: Learn More\n\n"
@@ -663,7 +746,7 @@ def build_sample_showcase(brand_key: str) -> dict:
                 "- Voiceover/Text Overlay: Outage outside. Power inside. (6 words)\n"
                 "---DEEP_DIVE---\n"
                 "### US Creative Rationale\n"
-                "- **[Meta/Video] Problem -> Fix:** Spec-heavy visuals feel distant to US homeowners -> Lead with blackout protection and app clarity in 4 seconds.\n"
+                "- **[Paid Social/Video] Problem -> Fix:** Spec-heavy visuals feel distant to US homeowners -> Lead with blackout protection and app clarity in 4 seconds.\n"
                 "- **[Search RSA] Problem -> Fix:** Broad headlines dilute US intent -> Pair clear backup/savings outcomes with assessment CTAs.\n"
                 "- **[Funnel Match] Problem -> Fix:** Ad-to-page messaging gap -> Carry backup and savings framing directly onto the US landing hero.\n\n"
                 "### US Creative A/B Testing Matrix\n"
@@ -678,10 +761,10 @@ def build_sample_showcase(brand_key: str) -> dict:
                 "**Current Brand Sentiment Archetype:** In the US, Enphase earns strong engineering trust and Enlighten app loyalty among homeowners, while reputation risks center on installer execution speed and support follow-through.\n\n"
                 "| Reputation & Listening Pillar | Score /100 | Observable US Social / Review Signal | Primary Trust Risk |\n"
                 "| --- | --- | --- | --- |\n"
-                "| 1. Fulfillment & Post-Purchase Sentiment | 66 | US setup timelines depend on local installers | US partner delays reflecting on brand |\n"
-                "| 2. Clinical & Product Trust Authority | 74 | Strong US reliability and monitoring UX feedback | Isolated RMA/firmware threads |\n"
-                "| 3. Review Ecosystem Parity | 65 | High product affinity vs. mixed local US reviews | State-level sentiment uneven across channels |\n"
-                "| 4. Community Advocacy & Earned Momentum | 69 | Active US owner discussions sharing performance | Unanswered forum threads lingering |\n\n"
+                "| 1. End-User & Partner Fulfillment / Handoff Sentiment | 66 | US setup timelines depend on local installers | US partner delays reflecting on brand |\n"
+                "| 2. Technical / Product Reliability & Brand Trust | 74 | Strong US reliability and monitoring UX feedback | Isolated RMA/firmware threads |\n"
+                "| 3. Consumer Review & B2B/Partner Reputation Parity | 65 | High product affinity vs. mixed local US reviews | State-level sentiment uneven across channels |\n"
+                "| 4. Community Advocacy, Partner Co-Marketing & Earned Proof | 69 | Active US owner discussions sharing performance | Unanswered forum threads lingering |\n\n"
                 "| Polarity | US Platform & Context | Representative Customer Feedback | Core Theme |\n"
                 "| --- | --- | --- | --- |\n"
                 "| Positive | US Solar Owner Forums | Per-panel monitoring makes spotting any issue quick and reliable. | App & Telemetry Value |\n"
@@ -704,7 +787,7 @@ def build_sample_showcase(brand_key: str) -> dict:
                 "| App & Monitoring Questions (US) | Setup, login, or telemetry queries | Low-Med (<12h response) | Digital Care shares guided fix |\n"
                 "| Creator & Press Mentions (US) | Reviews, comparisons, or policy posts | Medium (<24h response) | US Brand/Comms logs & responds |\n\n"
                 "### Top 10 US Influencers & YouTube Channels for Brand Collaboration\n"
-                "| Rank | Creator / Channel Name | Primary Platform | US Category & Audience Fit | Recommended Collab Angle |\n"
+                "| Rank | Creator / Channel Name | Primary Platform | Category & Audience Fit | Recommended Collab Angle |\n"
                 "| --- | --- | --- | --- | --- |\n"
                 "| 1 | Undecided with Matt Ferrell | YouTube | US clean energy & home tech | Deep dive on microinverters, storage & resilience |\n"
                 "| 2 | US Home Solar & DIY Channels | YouTube | US solar homeowners & builders | Real-world performance & monitoring walkthrough |\n"
@@ -719,9 +802,185 @@ def build_sample_showcase(brand_key: str) -> dict:
             ),
         }
 
+    if brand_key == "chargebee":
+        return {
+            "company": "Chargebee",
+            "country": "United States",
+            "biz_model": "B2B / B2B SaaS",
+            "official_url": "https://www.chargebee.com",
+            "is_showcase": True,
+            "hooks": {
+                "seo": ("70", "Expand comparison/migration hubs & AI answers for subscription billing & rev-rec."),
+                "paid": ("64", "Separate high-intent billing search from demo/trial retargeting and cut form steps."),
+                "pricing": ("66", "Clarify usage/volume tier jumps, implementation packaging & expansion paths."),
+                "creative": ("72", "Test CFO/RevOps billing-pain hooks & compliance proof over generic SaaS claims."),
+                "social": ("69", "Keep G2/peer review momentum high and tighten enterprise onboarding SLAs."),
+            },
+            "brand_logo": {"ok": False, "bytes": None, "source": None, "from_cache": False},
+            "brand_intel": (
+                "- **Visual Design Language:** Clean light surfaces, vibrant orange and deep slate accents, crisp SaaS UI cards, and structured workflow diagrams.\n"
+                "- **Paid Social & Ad Patterns:** LinkedIn thought-leadership and revenue-ops pain callouts paired with product UI and ROI proof.\n"
+                "- **Search & Demand Messaging:** Subscription billing, recurring revenue, usage-based pricing, and demo/trial conversion CTAs.\n"
+                "- **Core Audience & Trust Triggers:** Finance, RevOps, and growth leaders anchored by SOC2/compliance trust, integrations, and customer proof.\n\n"
+                "| Channel / Format | Current Baseline Pattern | Creative Fatigue / Gap | Next-Gen Hook Angle |\n"
+                "| --- | --- | --- | --- |\n"
+                "| LinkedIn Sponsored & Video | Broad billing & subscription platform ads | Generic SaaS value claims blend in feeds | Finance/RevOps bottleneck & migration proof hook |\n"
+                "| High-Intent Search | Subscription billing & rev-rec keywords | Competitor/migration intent needs tighter framing | Side-by-side billing & rev-rec readiness hook |\n"
+                "| Demo & Trial Funnels | Multi-field qualification & demo booking | Friction before buyers see tailored tier fit | Fast interactive billing-fit & ROI preview |"
+            ),
+            "e1": _sample_item(
+                "| Search Pillar | Score /100 | Observable Diagnostic Signal (US) | Primary Gap |\n"
+                "| --- | --- | --- | --- |\n"
+                "| 1. Technical & Programmatic SEO | 73 | Strong product, integration, and billing guide architecture | Comparison/alternative landing depth & crawl hygiene |\n"
+                "| 2. AEO | 69 | Solid billing & rev-rec definitions; structured Q&A upside | Concise answer blocks for billing, proration & rev-rec queries |\n"
+                "| 3. GEO | 67 | Known category name; mixed share in vendor shortlist prompts | Clear TCO & migration citation assets for AI answers |\n"
+                "| 4. Entity & Local Schema | 71 | Clear Organization & SoftwareApplication graph | Consistent integration, review & FAQ structured data |\n"
+                "| 5. Off-Site Consensus & Digital PR | 69 | Active B2B review presence and finance/SaaS coverage | Consistent peer proof across buyer shortlists |\n\n"
+                "- Build dedicated comparison and migration guides for high-intent B2B buyers.\n"
+                "- Add concise answer blocks on usage billing, dunning, and revenue recognition.\n"
+                "- Strengthen integration pages for ERP, CRM, and payment stack buyers.\n"
+                "- Publish clear benchmarks on subscription churn, billing recovery, and NRR.\n"
+                "---DEEP_DIVE---\n"
+                "| High-Intent B2B Buyer Prompt | Current AI Winner | Chargebee Vulnerability | Asset Needed to Win |\n"
+                "| --- | --- | --- | --- |\n"
+                "| Best subscription billing software for SaaS US | B2B review directories & blogs | Broad billing claims vs. specific stack fit | Clear SaaS billing & rev-rec comparison matrix |\n"
+                "| Usage-based billing vs seat-based pricing tools | SaaS pricing blogs & guides | Technical nuances split across articles | Practical hybrid/usage billing playbook |\n"
+                "| Stripe Billing alternatives for growing SaaS | Comparison listicles & forums | Generic category framing on migration intent | Migration checklist & TCO breakdown |\n"
+                "| Revenue recognition software for B2B finance | Finance/ERP roundups | Finance buyer proof needs sharper prominence | CFO/Controller rev-rec & audit readiness guide |\n\n"
+                "### US Execution Plan\n"
+                "- **[AEO] Problem -> Fix:** Long guides bury direct answers -> Add concise answer-first blocks on billing & rev-rec pages.\n"
+                "- **[GEO] Problem -> Fix:** Roundups shape AI shortlists -> Publish objective comparison and migration benchmark assets.\n"
+                "- **[Schema] Problem -> Fix:** Uneven markup across resource templates -> Standardize SoftwareApplication, FAQPage & Organization schema.\n"
+                "- **[SEO] Problem -> Fix:** High-intent alternative queries split across posts -> Consolidate comparison hubs with clear next steps.\n"
+                "- **[Off-Site] Problem -> Fix:** Customer proof sits in silos -> Pair verified case studies with transparent implementation stories."
+            ),
+            "e_paid": _sample_item(
+                "| Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal (US) | Primary Leakage |\n"
+                "| --- | --- | --- | --- |\n"
+                "| 1. Non-Brand Search & Demand/PMax Efficiency | 66 | Strong intent capture on core billing & SaaS queries | Broad non-brand clicks before scale/ICP check |\n"
+                "| 2. Paid Social Acquisition & Creative Fatigue | 62 | Active LinkedIn & paid social demand programs | Repeated platform framing across buying roles |\n"
+                "| 3. Landing Page, Demo/Trial & Pipeline CRO | 63 | Demo and trial paths serve different deal sizes | Qualification friction before showing value |\n"
+                "| 4. Lead Routing, Sales Handoff & Buying-Committee Friction | 65 | Multi-stakeholder B2B evaluation cycle | Slow handoff or missing multi-thread assets |\n\n"
+                "- Separate high-intent BOF search from top-of-funnel demand campaigns.\n"
+                "- Tailor paid social creatives to CFO, RevOps, and product leaders.\n"
+                "- Streamline demo/trial forms and offer self-guided fit previews.\n"
+                "- Track pipeline/SQL conversion and speed-to-lead, not raw leads.\n"
+                "---DEEP_DIVE---\n"
+                "### US Paid & Funnel Fixes\n"
+                "- **[Search] Problem -> Fix:** Broad non-brand terms bring lower-fit inquiries -> Tighten intent segmentation and ICP qualification cues.\n"
+                "- **[Paid Social] Problem -> Fix:** Generic B2B ads fatigue senior buyers -> Segment hooks by finance, RevOps, and growth personas.\n"
+                "- **[Funnel CRO] Problem -> Fix:** Heavy forms slow high-intent visitors -> Test progressive fields and instant calendar/trial flow.\n"
+                "- **[Sales Handoff] Problem -> Fix:** Buying committees need multi-role proof -> Provide shareable ROI and security briefs post-signup.\n\n"
+                "### US Experiment Backlog\n"
+                "| Test Hypothesis | Primary Metric | Guardrail Metric | Expected Impact |\n"
+                "| --- | --- | --- | --- |\n"
+                "| Progressive form + instant fit summary on demo LP | Demo-to-SQL CVR | Cost per Qualified SQL (USD) | +14-20% qualified pipeline lift |\n"
+                "| Persona-specific LinkedIn hooks (CFO vs. RevOps) | Engaged CTR & SQL Rate | LinkedIn CPL (USD) | +16-24% persona click & reply lift |\n"
+                "| Dedicated comparison/migration search ad groups | High-Intent Demo Share | Blended Non-Brand CAC Payback | +12-18% higher-ACV demo mix |\n"
+                "| Post-demo buyer enablement kit (ROI + security) | Stage-1 to Closed-Won Rate | Sales Cycle Length | +8-14% committee conversion lift |"
+            ),
+            "e2": _sample_item(
+                "**Current Monetization & Packaging Strategy:** Chargebee pairs tiered subscription/revenue-management packaging with volume/usage scaling, add-on modules, and enterprise/commercial expansion paths.\n\n"
+                "| Pricing & Economics Pillar | Score /100 | Observable Pricing Signal | Margin / LTV Leakage |\n"
+                "| --- | --- | --- | --- |\n"
+                "| 1. Core Plan, Seat/Usage Tier & ACV Positioning | 68 | Clear tier progression for growing to enterprise SaaS | Over-jump complexity at usage/volume inflection points |\n"
+                "| 2. Free Trial, Freemium & Implementation Fee Architecture | 63 | Guided evaluation and structured onboarding | Implementation friction on mid-market upgrades |\n"
+                "| 3. Expansion, NRR & Multi-Year Renewal Monetization | 67 | Strong natural expansion with billing volume growth | Uncaptured add-on attach during renewals |\n"
+                "| 4. Enterprise Tier, Add-On Module & Services Mix | 66 | Advanced rev-rec, billing & analytics capabilities | Packaging overlap across adjacent modules |\n\n"
+                "- Make tier transitions and usage thresholds transparent for buyers.\n"
+                "- Offer clear starter vs. guided onboarding paths by deal size.\n"
+                "- Tie expansion packaging to billing volume and module attach.\n"
+                "- Align sales discounting guardrails with net dollar retention.\n"
+                "---DEEP_DIVE---\n"
+                "### US Tier Optimization & Margin Plan\n"
+                "- **[Tier Structure] Problem -> Fix:** Usage/volume jumps can feel opaque -> Clarify threshold math and predictable overage/tier steps.\n"
+                "- **[Onboarding/Fees] Problem -> Fix:** Setup effort slows mid-market adoption -> Package transparent implementation tiers with clear ROI.\n"
+                "- **[Expansion/NRR] Problem -> Fix:** Add-on value surfaces late in cycle -> Introduce high-attach modules at clear growth milestones.\n"
+                "- **[Discounting] Problem -> Fix:** Ad-hoc concessions trim net realization -> Anchor discounts to multi-year terms or add-on attach.\n\n"
+                "### US Unit Economics & Pricing Impact Matrix\n"
+                "| Pricing Lever | Target Cohort | Mechanism | Margin / LTV Lift | Volume / Churn Guardrail |\n"
+                "| --- | --- | --- | --- | --- |\n"
+                "| Transparent Tier & Overage Guardrails | Scaling SaaS accounts | Clearer volume bands & predictable steps | +10-16% expansion conversion | Prevent surprise bill shock at renewal |\n"
+                "| Tiered Implementation Packages | Mid-market & upmarket buyers | Fixed-scope onboarding & migration options | +150-240 bps net realization | Keep low-friction entry for self-serve/SMB |\n"
+                "| Module Attach Bundles at Renewal | Existing subscribers | Bundled rev-rec/retention add-ons | +12-20% NRR / expansion LTV | Gate add-ons to clear workflow triggers |\n"
+                "| Multi-Year Term Incentives | Annual/enterprise renewals | Discount tied to multi-year or add-on commit | -8-14% annual churn risk | Protect list price integrity on 1-yr deals |"
+            ),
+            "e3": _sample_item(
+                "1. **Search / High-Intent Ad Pack (US)**\n"
+                "- Headline 1: Subscription Billing & Rev-Rec\n"
+                "- Headline 2: Scale Recurring & Usage Revenue\n"
+                "- Headline 3: Book a Tailored SaaS Demo\n"
+                "- Description 1: Automate recurring billing, usage tiers, and revenue recognition as you scale. Book a demo.\n"
+                "- Description 2: Built for finance and growth teams managing complex subscriptions. See how it works.\n\n"
+                "2. **Primary Paid Social Ad (US)**\n"
+                "- Primary Text: Stop duct-taping billing spreadsheets and manual invoices as revenue scales. See modern SaaS billing.\n"
+                "- Headline: Billing Built to Scale With You\n"
+                "- CTA: Book a Demo\n\n"
+                "3. **4-Second Video Hook (US)**\n"
+                "- Visual Scene: Finance lead closes messy billing sheet; clean automated revenue workflow appears.\n"
+                "- Voiceover/Text Overlay: Outgrow billing bottlenecks before they stall growth. (7 words)\n"
+                "---DEEP_DIVE---\n"
+                "### US Creative Rationale\n"
+                "- **[Paid Social/Video] Problem -> Fix:** Abstract SaaS visuals blend together -> Lead with a concrete finance/RevOps workflow shift in 4 seconds.\n"
+                "- **[Search RSA] Problem -> Fix:** Broad headlines miss high-intent buyers -> Pair billing/rev-rec outcomes with clear demo CTAs.\n"
+                "- **[Funnel Match] Problem -> Fix:** Ad-to-page message drift -> Carry the exact billing/scale promise onto the landing hero.\n\n"
+                "### US Creative A/B Testing Matrix\n"
+                "| Ad Variant | Hook / Angle | Target Persona | Primary KPI |\n"
+                "| --- | --- | --- | --- |\n"
+                "| Variant A (Rev-Rec & Close) | Faster month-end & audit readiness | CFO / Finance leaders | Qualified SQL Rate |\n"
+                "| Variant B (Pricing Agility) | Launching usage/hybrid plans fast | RevOps / Product / Growth | Demo-to-SQL CVR |\n"
+                "| Variant C (Migration Ease) | Switching billing stacks smoothly | VP Eng / Billing leads | Cost per Qualified SQL (USD) |\n"
+                "| Variant D (Customer Proof) | Real SaaS scaling & retention metrics | Buying committee / Execs | Pipeline Opportunity Value |"
+            ),
+            "e4": _sample_item(
+                "**Current Brand Sentiment Archetype:** In the US, Chargebee holds strong category recognition for subscription billing and SaaS revenue workflows, while buyer scrutiny focuses on implementation effort, edge-case flexibility, and support responsiveness.\n\n"
+                "| Reputation & Listening Pillar | Score /100 | Observable US Social / Review Signal | Primary Trust Risk |\n"
+                "| --- | --- | --- | --- |\n"
+                "| 1. Pipeline Velocity, Demo/SQL & Post-Signup Sentiment | 67 | Active B2B evaluation and onboarding feedback | Implementation complexity slowing time-to-value |\n"
+                "| 2. Category Authority, Security/ROI & Product Trust | 73 | Strong billing/rev-rec credibility and enterprise trust | Edge-case workflow questions in complex setups |\n"
+                "| 3. G2 / Capterra / Peer Review & Forum Parity | 68 | Solid B2B review footprint with mixed setup notes | Setup/support nuance in peer review threads |\n"
+                "| 4. Executive / Founder Advocacy & Customer Proof | 67 | Credible SaaS growth & monetization stories | Need more role-specific CFO/RevOps proof |\n\n"
+                "| Polarity | US Platform & Context | Representative Customer Feedback | Core Theme |\n"
+                "| --- | --- | --- | --- |\n"
+                "| Positive | B2B Software Reviews | Handles recurring plans, proration, and upgrades cleanly once configured. | Core Billing Capability |\n"
+                "| Positive | Customer Case Studies | Helped streamline subscription workflows while scaling recurring revenue. | Scalability & Workflows |\n"
+                "| Positive | Peer Discussions | Helpful integrations across billing, payments, and revenue tools. | Stack Ecosystem |\n"
+                "| Negative | B2B Review Threads | Initial setup and custom configuration took longer than expected. | Implementation Effort |\n"
+                "| Negative | User / Forum Feedback | Edge-case billing rules needed extra workarounds or specialist help. | Edge-Case Flexibility |\n"
+                "| Negative | Support / Account Threads | Escalating complex billing tickets took multiple touchpoints. | Technical Support SLA |\n\n"
+                "---DEEP_DIVE---\n"
+                "### US Rapid Triage Plan\n"
+                "- **[Time-to-Value] Problem -> Fix:** Setup friction hurts early sentiment -> Set clearer onboarding milestones and templates upfront.\n"
+                "- **[Review Parity] Problem -> Fix:** Setup/edge-case notes appear in reviews -> Address common configuration questions proactively in docs/FAQs.\n"
+                "- **[Support SLA] Problem -> Fix:** Complex billing tickets stall deals/renewals -> Route technical billing escalations to senior specialists fast.\n"
+                "- **[Executive Proof] Problem -> Fix:** Buyers want peer validation -> Publish concise CFO and RevOps ROI stories by segment.\n\n"
+                "### US Social Listening & Escalation SLA Matrix\n"
+                "| Listening Cluster & US Channels | Trigger Signal | Severity & SLA | Owner & Resolution Play |\n"
+                "| --- | --- | --- | --- |\n"
+                "| Production Billing / Outage Issue | Live billing/webhook failure mentions | High (<1h triage) | Engineering + Escalation Support resolve |\n"
+                "| Implementation / Migration Friction | Setup delay or migration complaints | Medium (<12h response) | Solutions / Onboarding Lead intervenes |\n"
+                "| G2 / Capterra / Peer Threads | Comparison or setup/support reviews | Medium (<24h response) | Customer Advocacy + Product Marketing respond |\n"
+                "| Executive & Community Mentions | SaaS pricing, rev-rec, or brand posts | Low-Med (<24h response) | Brand / Thought Leadership engages |\n\n"
+                "### Top 10 US Influencers & Channels for B2B Collaboration\n"
+                "| Rank | Creator / Channel Name | Primary Platform | Category & Audience Fit | Recommended Collab Angle |\n"
+                "| --- | --- | --- | --- | --- |\n"
+                "| 1 | SaaS Metrics & Monetization Newsletters | Newsletter & LinkedIn | SaaS founders, CFOs & GTM leaders | Benchmarks on NRR, usage pricing & expansion |\n"
+                "| 2 | RevOps & Revenue Architecture Communities | LinkedIn & Podcasts | RevOps & GTM ops practitioners | Designing clean lead-to-billing-to-rev-rec handoffs |\n"
+                "| 3 | B2B CFO & SaaS Finance Creators | LinkedIn & YouTube | CFOs, VPs Finance & controllers | Audit-ready rev-rec & subscription margin playbooks |\n"
+                "| 4 | B2B SaaS Growth & PLG Podcasts | YouTube & Podcasts | SaaS growth & product leaders | Hybrid PLG + sales-assisted monetization models |\n"
+                "| 5 | Fintech & Payments Infrastructure Analysts | LinkedIn & Newsletters | Payments & commerce decision-makers | Global payment methods, retries & recovery rates |\n"
+                "| 6 | B2B Demand Gen & Paid Media Educators | LinkedIn | B2B marketers & demand leaders | High-intent SaaS capture vs. pipeline quality |\n"
+                "| 7 | Enterprise Software Review & Buying Guides | Web & LinkedIn | Software buyers & evaluators | Transparent billing & subscription buyer checklist |\n"
+                "| 8 | Startup Scaling & Founder Operators | LinkedIn & YouTube | Seed to Series C SaaS founders | Avoiding billing debt before scaling ARR |\n"
+                "| 9 | Cloud & API Architecture Creators | YouTube & LinkedIn | Technical evaluators & architects | Webhooks, billing APIs & usage metering patterns |\n"
+                "| 10 | B2B Customer Success & Retention Leaders | LinkedIn & Webinars | CS & renewals leaders | Reducing involuntary churn & driving expansion |"
+            ),
+        }
+
     return {
         "company": "Supertails",
         "country": "India",
+        "biz_model": "B2C / DTC",
         "official_url": "https://supertails.com",
         "is_showcase": True,
         "hooks": {
@@ -734,8 +993,8 @@ def build_sample_showcase(brand_key: str) -> dict:
         "brand_logo": {"ok": False, "bytes": None, "source": None, "from_cache": False},
         "brand_intel": (
             "- **Visual Design Language:** Warm orange and deep navy accents, rounded cards, friendly sans-serif typography, and candid pet photography.\n"
-            "- **Meta & Social Ad Patterns:** Dynamic SKU carousels, creator reels, situational hooks, and express delivery or offer badges.\n"
-            "- **Google Search & Shopping Messaging:** Pet store headlines, vet care access, fast delivery cues, and direct shop CTAs.\n"
+            "- **Paid Social & Ad Patterns:** Dynamic SKU carousels, creator reels, situational hooks, and express delivery or offer badges.\n"
+            "- **Search & Demand Messaging:** Pet store headlines, vet care access, fast delivery cues, and direct shop CTAs.\n"
             "- **Core Audience & Trust Triggers:** Urban Indian pet parents anchored by certified vets, community scale, and verified reviews.\n\n"
             "| Channel / Format | Current Baseline Pattern | Creative Fatigue / Gap | Next-Gen Hook Angle |\n"
             "| --- | --- | --- | --- |\n"
@@ -772,7 +1031,7 @@ def build_sample_showcase(brand_key: str) -> dict:
         "e_paid": _sample_item(
             "| Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal | Primary Leakage |\n"
             "| --- | --- | --- | --- |\n"
-            "| 1. Non-Brand Search & PMax Efficiency | 60 | PMax and Search capture brand & category demand | Brand overlap & low-margin staple bidding |\n"
+            "| 1. Non-Brand Search & Demand/PMax Efficiency | 60 | PMax and Search capture brand & category demand | Brand overlap & low-margin staple bidding |\n"
             "| 2. Paid Social Acquisition & Creative Fatigue | 62 | Active Meta prospecting and retention ads | Low-AOV trial orders & overlapping retargeting |\n"
             "| 3. Landing Page & Product-to-Cart CRO | 59 | Mobile web and app serve distinct journeys | Mobile web conversion lag & missing unit cues |\n"
             "| 4. Checkout, Booking & Post-Click Friction | 63 | Express checkout plus fee/COD mechanics | Fee/COD friction & delivery SLA uncertainty |\n\n"
@@ -821,13 +1080,13 @@ def build_sample_showcase(brand_key: str) -> dict:
             "| Consult-to-Care Bundle | Vet consultation users | Post-consult tailored care/supplement cart | +15-22% consult-to-order rate | Keep clinical advice unbiased & trusted |"
         ),
         "e3": _sample_item(
-            "1. **Google Search RSA Pack**\n"
+            "1. **Search / High-Intent Ad Pack**\n"
             "- Headline 1: Vet-Curated Pet Care & Food\n"
             "- Headline 2: Fast Delivery & Vet Support\n"
             "- Headline 3: Trusted By Indian Pet Parents\n"
             "- Description 1: Shop authentic pet food, treats, and vet-backed essentials with fast delivery.\n"
             "- Description 2: Get expert vet guidance and easy repeat orders for pets every day.\n\n"
-            "2. **Meta Feed Ad**\n"
+            "2. **Primary Paid Social Ad**\n"
             "- Primary Text: Upgrade daily pet routines with vet-curated nutrition and care bundles.\n"
             "- Headline: Vet-Curated Care Bundles\n"
             "- CTA: Shop Now\n\n"
@@ -836,7 +1095,7 @@ def build_sample_showcase(brand_key: str) -> dict:
             "- Voiceover/Text Overlay: Know what goes in their bowl. (6 words)\n"
             "---DEEP_DIVE---\n"
             "### Creative Rationale\n"
-            "- **[Meta/Video] Problem -> Fix:** Generic discount banners blend into feeds -> Lead with ingredient trust and life-stage fit in 4 seconds.\n"
+            "- **[Paid Social/Video] Problem -> Fix:** Generic discount banners blend into feeds -> Lead with ingredient trust and life-stage fit in 4 seconds.\n"
             "- **[Search RSA] Problem -> Fix:** Repetitive promo copy misses care buyers -> Pair fast delivery with vet authority and proof.\n"
             "- **[Visual Guardrail] Problem -> Fix:** Logo drift hurts brand polish -> Preserve official brand logo and cap overlay badges.\n\n"
             "### Creative A/B Testing Matrix\n"
@@ -894,29 +1153,33 @@ def build_sample_showcase(brand_key: str) -> dict:
 
 
 # -----------------------------------------------------------------------------
-# GEO-AWARE CACHE HELPERS (48-HOUR TTL)
+# GEO + BUSINESS MODEL AWARE CACHE HELPERS (48-HOUR TTL)
 # -----------------------------------------------------------------------------
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.strip().lower()).strip("_") or "default"
 
 
-def _geo_prefix(company: str, country: str = "") -> str:
+def _model_slug(biz_model: str) -> str:
+    return _slug(biz_model or "b2c_dtc")
+
+
+def _scope_prefix(company: str, country: str = "", biz_model: str = "B2C / DTC") -> str:
     geo_part = _slug(country) if (country or "").strip() else "global"
-    return f"{_slug(company)}__{geo_part}"
+    return f"{_slug(company)}__{geo_part}__{_model_slug(biz_model)}"
 
 
-def _meta_path(company: str, element_key: str, country: str = "") -> str:
-    return os.path.join(CACHE_DIR, f"{_geo_prefix(company, country)}__{_slug(element_key)}.json")
+def _meta_path(company: str, element_key: str, country: str = "", biz_model: str = "B2C / DTC") -> str:
+    return os.path.join(CACHE_DIR, f"{_scope_prefix(company, country, biz_model)}__{_slug(element_key)}.json")
 
 
-def _asset_path(company: str, element_key: str, ext: str, country: str = "") -> str:
-    return os.path.join(CACHE_DIR, f"{_geo_prefix(company, country)}__{_slug(element_key)}.{ext}")
+def _asset_path(company: str, element_key: str, ext: str, country: str = "", biz_model: str = "B2C / DTC") -> str:
+    return os.path.join(CACHE_DIR, f"{_scope_prefix(company, country, biz_model)}__{_slug(element_key)}.{ext}")
 
 
-def load_cached_element(company: str, element_key: str, asset_ext: str | None = None, country: str = ""):
+def load_cached_element(company: str, element_key: str, asset_ext: str | None = None, country: str = "", biz_model: str = "B2C / DTC"):
     if BACKEND_FORCE_REFRESH:
         return None
-    meta_file = _meta_path(company, element_key, country=country)
+    meta_file = _meta_path(company, element_key, country=country, biz_model=biz_model)
     if not os.path.exists(meta_file):
         return None
     try:
@@ -926,7 +1189,7 @@ def load_cached_element(company: str, element_key: str, asset_ext: str | None = 
         if (time.time() - saved_at) > TTL_SECONDS:
             return None
         if asset_ext:
-            asset_file = _asset_path(company, element_key, asset_ext, country=country)
+            asset_file = _asset_path(company, element_key, asset_ext, country=country, biz_model=biz_model)
             if not os.path.exists(asset_file):
                 return None
             with open(asset_file, "rb") as af:
@@ -936,12 +1199,12 @@ def load_cached_element(company: str, element_key: str, asset_ext: str | None = 
         return None
 
 
-def save_cached_element(company: str, element_key: str, payload: dict, raw_bytes: bytes | None = None, asset_ext: str | None = None, country: str = ""):
-    meta_file = _meta_path(company, element_key, country=country)
+def save_cached_element(company: str, element_key: str, payload: dict, raw_bytes: bytes | None = None, asset_ext: str | None = None, country: str = "", biz_model: str = "B2C / DTC"):
+    meta_file = _meta_path(company, element_key, country=country, biz_model=biz_model)
     record = dict(payload)
     record["saved_at"] = time.time()
     if asset_ext and raw_bytes is not None:
-        asset_file = _asset_path(company, element_key, asset_ext, country=country)
+        asset_file = _asset_path(company, element_key, asset_ext, country=country, biz_model=biz_model)
         with open(asset_file, "wb") as af:
             af.write(raw_bytes)
         record["asset_ext"] = asset_ext
@@ -958,7 +1221,7 @@ def format_age(saved_at: float) -> str:
 
 
 # -----------------------------------------------------------------------------
-# MODEL CALLERS & LOGO EXTRACTION
+# MODEL CALLERS, AUTO-CLASSIFICATION & LOGO EXTRACTION
 # -----------------------------------------------------------------------------
 def call_gemini(prompt: str, use_search: bool = False, use_url_context: bool = False):
     if not GEMINI_KEY:
@@ -1036,7 +1299,7 @@ def route_agent(prompt: str, preferred: str = "gemini", use_search: bool = False
 
 
 def get_or_resolve_official_url(company: str, country: str = "") -> str:
-    cached = load_cached_element(company, "official_url_v1", country=country)
+    cached = load_cached_element(company, "official_url_v1", country=country, biz_model="shared")
     if cached and cached.get("url"):
         return cached["url"]
     default_url = f"https://{_slug(company)}.com"
@@ -1050,10 +1313,60 @@ def get_or_resolve_official_url(company: str, country: str = "") -> str:
         )
         match = re.search(r"https?://[^\s\"'<>]+", domain_raw.strip())
         resolved = match.group(0).rstrip(".,)/") if match else default_url
-        save_cached_element(company, "official_url_v1", {"url": resolved}, country=country)
+        save_cached_element(company, "official_url_v1", {"url": resolved}, country=country, biz_model="shared")
         return resolved
     except Exception:
         return default_url
+
+
+def detect_business_model_from_site(company: str, official_url: str, country: str = "") -> dict:
+    geo_part = _slug(country) if (country or "").strip() else "global"
+    cache_key = f"biz_model_detect_v1__{geo_part}"
+    cached = load_cached_element(company, cache_key, country=country, biz_model="shared")
+    if cached and cached.get("detected_model"):
+        return cached
+
+    geo_note = f" in {country.strip()}" if (country or "").strip() else ""
+    prompt = f"""
+    Analyze the website and commercial offering of {company} ({official_url}){geo_note}.
+    Classify the business model into EXACTLY one of these three options:
+    - B2C / DTC
+    - B2B / B2B SaaS
+    - Hybrid / B2B2C
+
+    Rules:
+    - Choose "B2B / B2B SaaS" if the primary offering is B2B software, SaaS, enterprise tooling, APIs, or B2B services sold to businesses/teams.
+    - Choose "B2C / DTC" if the primary offering is direct-to-consumer or retail products/services sold to individual consumers.
+    - Choose "Hybrid / B2B2C" if the brand meaningfully serves both end consumers/retailers and B2B/enterprise/channel/partner buyers.
+
+    Respond ONLY in this exact two-line format (no emojis):
+    MODEL: <B2C / DTC | B2B / B2B SaaS | Hybrid / B2B2C>
+    REASON: <1 concise sentence under 22 words citing website/offering signals>
+    """
+    try:
+        raw, _ = route_agent(prompt, preferred="gemini", use_search=True, use_url_context=True)
+        model_match = re.search(r"MODEL:\s*(B2C\s*/\s*DTC|B2B\s*/\s*B2B\s*SaaS|Hybrid\s*/\s*B2B2C)", raw, re.IGNORECASE)
+        reason_match = re.search(r"REASON:\s*(.+)", raw, re.IGNORECASE)
+
+        detected = "B2C / DTC"
+        if model_match:
+            norm = re.sub(r"\s+", " ", model_match.group(1).strip()).lower()
+            if "saas" in norm or "b2b / b2b" in norm:
+                detected = "B2B / B2B SaaS"
+            elif "hybrid" in norm or "b2b2c" in norm:
+                detected = "Hybrid / B2B2C"
+            else:
+                detected = "B2C / DTC"
+
+        reason = reason_match.group(1).strip() if reason_match else f"Classified from {official_url} positioning and commercial signals."
+        payload = {"detected_model": detected, "reason": reason}
+        save_cached_element(company, cache_key, payload, country=country, biz_model="shared")
+        return payload
+    except Exception:
+        return {
+            "detected_model": "B2C / DTC",
+            "reason": f"Defaulted to B2C / DTC for {official_url}; toggle above if needed.",
+        }
 
 
 def _download_valid_raster_image(url: str) -> bytes | None:
@@ -1084,7 +1397,7 @@ def _download_valid_raster_image(url: str) -> bytes | None:
 
 
 def get_or_fetch_brand_logo(company: str, base_url: str, country: str = ""):
-    cached = load_cached_element(company, "brand_logo_v1", asset_ext="png", country=country)
+    cached = load_cached_element(company, "brand_logo_v1", asset_ext="png", country=country, biz_model="shared")
     if cached:
         return {"ok": True, "bytes": cached["bytes"], "source": cached.get("source", f"Official Site ({base_url})"), "from_cache": True}
 
@@ -1122,7 +1435,7 @@ def get_or_fetch_brand_logo(company: str, base_url: str, country: str = ""):
             png_bytes = _download_valid_raster_image(c_url)
             if png_bytes:
                 source_label = f"Official Site ({base_url})"
-                save_cached_element(company, "brand_logo_v1", {"source": source_label}, raw_bytes=png_bytes, asset_ext="png", country=country)
+                save_cached_element(company, "brand_logo_v1", {"source": source_label}, raw_bytes=png_bytes, asset_ext="png", country=country, biz_model="shared")
                 return {"ok": True, "bytes": png_bytes, "source": source_label, "from_cache": False}
     except Exception:
         pass
@@ -1130,8 +1443,8 @@ def get_or_fetch_brand_logo(company: str, base_url: str, country: str = ""):
     return {"ok": False, "bytes": None, "source": None, "from_cache": False}
 
 
-def get_or_generate_text_element(company: str, element_key: str, prompt: str, preferred: str = "gemini", use_search: bool = False, use_url_context: bool = False, country: str = ""):
-    cached = load_cached_element(company, element_key, country=country)
+def get_or_generate_text_element(company: str, element_key: str, prompt: str, preferred: str = "gemini", use_search: bool = False, use_url_context: bool = False, country: str = "", biz_model: str = "B2C / DTC"):
+    cached = load_cached_element(company, element_key, country=country, biz_model=biz_model)
     if cached:
         return {
             "ok": True,
@@ -1143,7 +1456,7 @@ def get_or_generate_text_element(company: str, element_key: str, prompt: str, pr
         }
     try:
         content, engine = route_agent(prompt, preferred=preferred, use_search=use_search, use_url_context=use_url_context)
-        save_cached_element(company, element_key, {"content": content, "engine": engine}, country=country)
+        save_cached_element(company, element_key, {"content": content, "engine": engine}, country=country, biz_model=biz_model)
         return {
             "ok": True,
             "content": content,
@@ -1163,29 +1476,31 @@ def get_or_generate_text_element(company: str, element_key: str, prompt: str, pr
         }
 
 
-def get_or_generate_brand_intel(company: str, official_url: str, country: str = ""):
-    cached = load_cached_element(company, "brand_ad_intel_v3", country=country)
+def get_or_generate_brand_intel(company: str, official_url: str, country: str = "", biz_model: str = "B2C / DTC"):
+    cached = load_cached_element(company, "brand_ad_intel_v4", country=country, biz_model=biz_model)
     if cached:
         return cached["content"]
+    m_ctx = _model_guidance(biz_model)
     geo_clause = f"STRICTLY SCOPED TO {country.strip().upper()} ONLY (use local currency, local regulations, and {country.strip()} market context; ignore other countries)." if (country or "").strip() else "Cover primary active commercial markets."
     prompt = f"""
-    Act as VP of Brand & Performance Creative auditing {company} (official website: {official_url}) across its storefront, Meta Ad Library, Google Ads Transparency Center, and Google Search.
+    Act as VP of Brand & Performance Creative auditing {company} (official website: {official_url}) across its web experience, Meta Ad Library, LinkedIn/Google Ads Transparency Center, and search presence.
+    {m_ctx["prompt_context"]}
     {geo_clause}
     STRICT FORMATTING (DO NOT USE ANY EMOJIS):
     - Output EXACTLY these 4 concise bullet points (max 18 words per bullet):
-      - **Visual Design Language:** [Exact primary/secondary brand colors, card/UI styling, typography mood, and photography style]
-      - **Meta & Social Ad Patterns:** [Dominant visual hooks, offer badges, and creative formats seen in their Meta ads]
-      - **Google Search & Shopping Messaging:** [Primary headline angles, value props, and CTA patterns in search/shopping ads]
-      - **Core Audience & Trust Triggers:** [Target persona setting and key credibility signals/social proof used]
+      - **Visual Design Language:** [Exact primary/secondary brand colors, card/UI styling, typography mood, and photography/product UI style]
+      - **Paid Social & Ad Patterns:** [Dominant visual hooks, proof/offer badges, and creative formats seen in their ads]
+      - **Search & Demand Messaging:** [Primary headline angles, value props, and CTA patterns in search/demand ads]
+      - **Core Audience & Trust Triggers:** [Target buyer/persona setting and key credibility signals/social proof used]
     - Immediately follow with a compact 3-row **Creative Baseline & Opportunity Matrix** table:
       | Channel / Format | Current Baseline Pattern | Creative Fatigue / Gap | Next-Gen Hook Angle |
     """
-    res = get_or_generate_text_element(company, "brand_ad_intel_v3", prompt, preferred="gemini", use_search=True, use_url_context=True, country=country)
+    res = get_or_generate_text_element(company, "brand_ad_intel_v4", prompt, preferred="gemini", use_search=True, use_url_context=True, country=country, biz_model=biz_model)
     return res["content"] if res["ok"] else f"Authentic brand design language for {company}."
 
 
-def get_or_generate_image_element(company: str, element_key: str, prompt: str, aspect_ratio: str = "1:1", logo_bytes: bytes | None = None, country: str = ""):
-    cached = load_cached_element(company, element_key, asset_ext="png", country=country)
+def get_or_generate_image_element(company: str, element_key: str, prompt: str, aspect_ratio: str = "1:1", logo_bytes: bytes | None = None, country: str = "", biz_model: str = "B2C / DTC"):
+    cached = load_cached_element(company, element_key, asset_ext="png", country=country, biz_model=biz_model)
     if cached:
         return {
             "ok": True,
@@ -1227,7 +1542,7 @@ def get_or_generate_image_element(company: str, element_key: str, prompt: str, a
                 buf = io.BytesIO()
                 img.save(buf, format="PNG")
                 raw_png = buf.getvalue()
-                save_cached_element(company, element_key, {}, raw_bytes=raw_png, asset_ext="png", country=country)
+                save_cached_element(company, element_key, {}, raw_bytes=raw_png, asset_ext="png", country=country, biz_model=biz_model)
                 return {
                     "ok": True,
                     "bytes": raw_png,
@@ -1280,16 +1595,18 @@ def _clean_pdf_text(text: str) -> str:
 
 
 class ExecutivePDF(FPDF):
-    def __init__(self, company_name: str, country_label: str = ""):
+    def __init__(self, company_name: str, country_label: str = "", biz_model: str = ""):
         super().__init__()
         self.company_name = _clean_pdf_text(company_name)
         self.country_label = _clean_pdf_text(country_label)
+        self.biz_model = _clean_pdf_text(biz_model)
 
     def header(self):
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(110, 110, 115)
         geo_tag = f" ({self.country_label.upper()})" if self.country_label else ""
-        self.cell(0, 8, _clean_pdf_text(f"EXECUTIVE INTELLIGENCE BRIEF  |  {self.company_name.upper()}{geo_tag}"), align="L")
+        model_tag = f" [{self.biz_model}]" if self.biz_model else ""
+        self.cell(0, 8, _clean_pdf_text(f"EXECUTIVE INTELLIGENCE BRIEF  |  {self.company_name.upper()}{geo_tag}{model_tag}"), align="L")
         self.ln(10)
 
     def footer(self):
@@ -1376,7 +1693,8 @@ class ExecutivePDF(FPDF):
 def build_executive_pdf(audit_data: dict) -> bytes:
     company = audit_data.get("company", "Brand")
     country_lbl = audit_data.get("country", "")
-    pdf = ExecutivePDF(company, country_label=country_lbl)
+    biz_model = audit_data.get("biz_model", "B2C / DTC")
+    pdf = ExecutivePDF(company, country_label=country_lbl, biz_model=biz_model)
     pdf.set_auto_page_break(auto=True, margin=18)
     pdf.add_page()
 
@@ -1387,7 +1705,7 @@ def build_executive_pdf(audit_data: dict) -> bytes:
     pdf.set_font("Helvetica", "", 10.5)
     pdf.set_text_color(110, 110, 115)
     geo_part = f"  -  Market: {country_lbl}" if country_lbl else "  -  Market: Global / All Markets"
-    subtitle_line = _clean_pdf_text(f"Executive Intelligence Brief{geo_part}  |  {datetime.now().strftime('%B %d, %Y')}")
+    subtitle_line = _clean_pdf_text(f"Executive Intelligence Brief{geo_part}  |  Model: {biz_model}  |  {datetime.now().strftime('%B %d, %Y')}")
     pdf.cell(0, 7, subtitle_line, new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
 
@@ -1404,7 +1722,7 @@ def build_executive_pdf(audit_data: dict) -> bytes:
             pdf.render_markdown_block(item["content"])
 
     images_to_embed = [
-        ("Meta Feed Ad (1:1)", audit_data.get("img_meta"), 95),
+        ("Paid Social Ad (1:1)", audit_data.get("img_meta"), 95),
         ("Display Banner (16:9)", audit_data.get("img_banner"), 150),
         ("4-Second Video Hook Keyframe (16:9)", audit_data.get("img_hook_frame"), 150),
     ]
@@ -1435,23 +1753,40 @@ def build_executive_pdf(audit_data: dict) -> bytes:
 
 
 def get_cached_pdf_bytes(audit_data: dict) -> bytes:
-    cache_map = st.session_state.setdefault("pdf_cache_v1", {})
-    key = f"{_geo_prefix(audit_data.get('company', 'brand'), audit_data.get('country', ''))}__{audit_data.get('is_showcase', False)}"
+    cache_map = st.session_state.setdefault("pdf_cache_v2", {})
+    key = f"{_scope_prefix(audit_data.get('company', 'brand'), audit_data.get('country', ''), audit_data.get('biz_model', 'B2C / DTC'))}__{audit_data.get('is_showcase', False)}"
     if key not in cache_map:
         cache_map[key] = build_executive_pdf(audit_data)
     return cache_map[key]
 
 
 # -----------------------------------------------------------------------------
-# GEO-SCOPED LIVE AUDIT ORCHESTRATOR (WITH VISUAL PROGRESS BAR)
+# STEP 1 (MODEL DETECTION) & STEP 2 (MODEL-AWARE LIVE AUDIT ORCHESTRATOR)
 # -----------------------------------------------------------------------------
-def run_live_audit(company: str, country: str = ""):
+def run_step1_detection(company: str, country: str = "") -> dict:
     clean_country = (country or "").strip()
+    official_url = get_or_resolve_official_url(company, country=clean_country)
+    detected = detect_business_model_from_site(company, official_url, country=clean_country)
+    return {
+        "company": company,
+        "country": clean_country,
+        "official_url": official_url,
+        "detected_model": detected.get("detected_model", "B2C / DTC"),
+        "reason": detected.get("reason", ""),
+    }
+
+
+def run_live_audit(company: str, country: str = "", biz_model: str = "B2C / DTC", pre_resolved_url: str | None = None):
+    clean_country = (country or "").strip()
+    clean_model = biz_model if biz_model in BUSINESS_MODELS else "B2C / DTC"
+    m_ctx = _model_guidance(clean_model)
+
     geo_rule = (
-        f"GEOGRAPHIC SCOPE MANDATE: Limit ALL analysis, search queries, buyer prompts, pricing/currency figures, regulations, ad hooks, customer reviews, and creator recommendations strictly to {clean_country.upper()}. Do not blend in other countries."
+        f"GEOGRAPHIC SCOPE MANDATE: Limit ALL analysis, search queries, buyer prompts, pricing/currency figures, regulations, ad hooks, customer reviews, and creator/authority recommendations strictly to {clean_country.upper()}. Do not blend in other countries."
         if clean_country
         else "GEOGRAPHIC SCOPE MANDATE: Analyze the brand across its primary active commercial markets."
     )
+    model_rule = f"BUSINESS MODEL MANDATE: {m_ctx['prompt_context']}"
 
     progress_slot = st.empty()
     bar_slot = st.empty()
@@ -1466,15 +1801,16 @@ def run_live_audit(company: str, country: str = ""):
         bar_slot.progress(min(100, max(0, pct)))
 
     try:
-        update_status(10, "Resolving official domain & brand mark...")
-        official_url = get_or_resolve_official_url(company, country=clean_country)
+        update_status(10, f"Resolving domain & brand mark ({clean_model})...")
+        official_url = pre_resolved_url or get_or_resolve_official_url(company, country=clean_country)
         brand_logo = get_or_fetch_brand_logo(company, official_url, country=clean_country)
 
         update_status(22, "Mapping brand design language & ad baseline...")
-        brand_dna_text = get_or_generate_brand_intel(company, official_url, country=clean_country)
+        brand_dna_text = get_or_generate_brand_intel(company, official_url, country=clean_country, biz_model=clean_model)
 
         p1 = f"""
         Act as Principal SEO, AEO, and GEO Architect auditing {company} ({official_url}).
+        {model_rule}
         {geo_rule}
         STRICT FORMATTING:
         - Start with:
@@ -1484,68 +1820,73 @@ def run_live_audit(company: str, country: str = ""):
         - End with '---DEEP_DIVE---' followed by an AI Prompt Visibility Matrix table and 5 bullets formatted as `- **[Area] Problem -> Fix:** [Diagnosis] -> [Action]`.
         """
         p_paid = f"""
-        Act as VP of Performance Marketing & CRO auditing {company} ({official_url}).
+        Act as VP of Performance Marketing & Conversion auditing {company} ({official_url}).
+        {model_rule}
         {geo_rule}
         STRICT FORMATTING:
         - Start with:
           | Paid & Funnel Pillar | Score /100 | Observable Diagnostic Signal | Primary Leakage |
-          Rows: 1. Non-Brand Search & PMax Efficiency, 2. Paid Social Acquisition & Creative Fatigue, 3. Landing Page & Product-to-Cart CRO, 4. Checkout, Booking & Post-Click Friction. Use integer-only scores.
+          Rows: 1. Non-Brand Search & Demand/PMax Efficiency, 2. Paid Social Acquisition & Creative Fatigue, {m_ctx["cro_pillar"]}, {m_ctx["checkout_pillar"]}. Use integer-only scores.
         - Follow with 4 short bullets (max 16 words each).
         - End with '---DEEP_DIVE---' followed by 4 bullets (`- **[Area] Problem -> Fix:** ...`) and a 4-row experiment backlog table (`| Test Hypothesis | Primary Metric | Guardrail Metric | Expected Impact |`).
         """
         p2 = f"""
         Act as VP of Pricing & Commercial Strategy auditing {company} ({official_url}).
+        {model_rule}
         {geo_rule}
         STRICT FORMATTING:
-        - Line 1: **Current Pricing Strategy:** [1 concise sentence].
+        - Line 1: **{m_ctx["pricing_summary_label"]}:** [1 concise sentence].
         - Follow with:
           | Pricing & Economics Pillar | Score /100 | Observable Pricing Signal | Margin / LTV Leakage |
-          Rows: 1. Core SKU & Marketplace Price Positioning, 2. Shipping, Fee & Basket Threshold Architecture, 3. Subscription & Repeat-Cohort Monetization, 4. Private-Label & High-Margin Service Mix. Use integer-only scores.
+          Rows: {m_ctx["pricing_p1"]}, {m_ctx["pricing_p2"]}, {m_ctx["pricing_p3"]}, {m_ctx["pricing_p4"]}. Use integer-only scores.
         - Follow with 4 short bullets (max 16 words each).
         - End with '---DEEP_DIVE---' followed by 4 bullets (`- **[Lever] Problem -> Fix:** ...`) and a 4-row impact table (`| Pricing Lever | Target Cohort | Mechanism | Margin / LTV Lift | Volume / Churn Guardrail |`).
         """
         p3 = f"""
         Act as VP of Performance Creative for {company}. Brand baseline: {brand_dna_text}
+        {model_rule}
         {geo_rule}
         STRICT FORMATTING (NO EMOJIS):
-        - Output 1. Google Search RSA Pack (3 headlines <=30 chars + 2 descriptions <=90 chars), 2. Meta Feed Ad (Primary Text <=110 chars, Headline <=35 chars, CTA), 3. 4-Second Video Hook (Scene + <=12-word hook).
+        - Output 1. Search / High-Intent Ad Pack (3 headlines <=30 chars + 2 descriptions <=90 chars), 2. Primary Paid Social Ad (Primary Text <=110 chars, Headline <=35 chars, CTA tailored to {clean_model}), 3. 4-Second Video Hook (Scene + <=12-word hook).
         - End with '---DEEP_DIVE---' followed by 3 bullets (`- **[Channel] Problem -> Fix:** ...`) and a 4-row A/B testing table (`| Ad Variant | Hook / Angle | Target Persona | Primary KPI |`).
         """
         p4 = f"""
-        Act as VP of Brand Reputation, Social Listening & Creator Partnerships auditing {company} ({official_url}).
+        Act as VP of Brand Reputation, Social Listening & Creator/Authority Partnerships auditing {company} ({official_url}).
+        {model_rule}
         {geo_rule}
         STRICT FORMATTING (NO EMOJIS):
         - Line 1: **Current Brand Sentiment Archetype:** [1 concise sentence].
         - Follow with:
           | Reputation & Listening Pillar | Score /100 | Observable Social / Review Signal | Primary Trust Risk |
-          Rows: 1. Fulfillment & Post-Purchase Sentiment, 2. Clinical & Product Trust Authority, 3. Review Ecosystem Parity, 4. Community Advocacy & Earned Momentum. Use integer-only scores.
+          Rows: {m_ctx["social_p1"]}, {m_ctx["social_p2"]}, {m_ctx["social_p3"]}, {m_ctx["social_p4"]}. Use integer-only scores.
         - Follow with a 6-row table (3 Positive, 3 Negative): `| Polarity | Platform & Context | Representative Customer Feedback | Core Theme |`.
-        - End with '---DEEP_DIVE---' followed by 4 bullets (`- **[Area] Problem -> Fix:** ...`), a 4-row SLA table (`| Listening Cluster & Channels | Trigger Signal | Severity & SLA | Owner & Resolution Play |`), and a 10-row creator table (`| Rank | Creator / Channel Name | Primary Platform | Category & Audience Fit | Recommended Collab Angle |`).
+        - End with '---DEEP_DIVE---' followed by 4 bullets (`- **[Area] Problem -> Fix:** ...`), a 4-row SLA table (`| Listening Cluster & Channels | Trigger Signal | Severity & SLA | Owner & Resolution Play |`), and a 10-row creator/thought-leader table (`| Rank | Creator / Channel Name | Primary Platform | Category & Audience Fit | Recommended Collab Angle |`).
         """
 
         update_status(35, "Running SEO, AEO & GEO search module...")
-        e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v3", p1, preferred="gemini", use_search=True, use_url_context=True, country=clean_country)
+        e1 = get_or_generate_text_element(company, "agent1_seo_aeo_geo_v4", p1, preferred="gemini", use_search=True, use_url_context=True, country=clean_country, biz_model=clean_model)
 
         update_status(48, "Running Paid Search & Funnel CRO module...")
-        e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v2", p_paid, preferred="gemini", use_search=True, use_url_context=True, country=clean_country)
+        e_paid = get_or_generate_text_element(company, "agent2_paid_cro_v3", p_paid, preferred="gemini", use_search=True, use_url_context=True, country=clean_country, biz_model=clean_model)
 
         update_status(60, "Running Pricing & Unit Economics module...")
-        e2 = get_or_generate_text_element(company, "agent2_pricing_v2", p2, preferred="gemini", use_search=True, use_url_context=True, country=clean_country)
+        e2 = get_or_generate_text_element(company, "agent2_pricing_v3", p2, preferred="gemini", use_search=True, use_url_context=True, country=clean_country, biz_model=clean_model)
 
         update_status(72, "Generating ad copy & creative angles...")
-        e3 = get_or_generate_text_element(company, "agent3_creative_v2", p3, preferred="gemini", country=clean_country)
+        e3 = get_or_generate_text_element(company, "agent3_creative_v3", p3, preferred="gemini", country=clean_country, biz_model=clean_model)
 
-        update_status(84, "Auditing social sentiment & creator roster...")
-        e4 = get_or_generate_text_element(company, "agent4_social_v2", p4, preferred="gemini", use_search=True, use_url_context=True, country=clean_country)
+        update_status(84, "Auditing social sentiment & creator/authority roster...")
+        e4 = get_or_generate_text_element(company, "agent4_social_v3", p4, preferred="gemini", use_search=True, use_url_context=True, country=clean_country, biz_model=clean_model)
 
         img_meta = img_banner = img_hook_frame = None
         if GENERATE_IMAGES_DEFAULT:
             update_status(92, "Rendering brand-aligned ad mockups...")
             logo_bytes = brand_logo["bytes"] if brand_logo["ok"] else None
             geo_img_note = f" Market context: {clean_country}." if clean_country else ""
-            img_meta = get_or_generate_image_element(company, "meta_ad_1x1_v3", f"Clean 1:1 Meta feed ad for {company}.{geo_img_note} {brand_dna_text} Max 2 clean UI elements.", "1:1", logo_bytes, country=clean_country)
-            img_banner = get_or_generate_image_element(company, "banner_ad_16x9_v3", f"Clean 16:9 display banner for {company}.{geo_img_note} {brand_dna_text} Max 2 clean UI elements.", "16:9", logo_bytes, country=clean_country)
-            img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9_v3", f"Clean 16:9 4-second video hook opening frame for {company}.{geo_img_note} {brand_dna_text} Max 2 clean UI overlays.", "16:9", logo_bytes, country=clean_country)
+            model_img_note = f" Business model context: {clean_model}."
+            img_meta = get_or_generate_image_element(company, "meta_ad_1x1_v4", f"Clean 1:1 paid social ad for {company}.{geo_img_note}{model_img_note} {brand_dna_text} Max 2 clean UI elements.", "1:1", logo_bytes, country=clean_country, biz_model=clean_model)
+            img_banner = get_or_generate_image_element(company, "banner_ad_16x9_v4", f"Clean 16:9 display banner for {company}.{geo_img_note}{model_img_note} {brand_dna_text} Max 2 clean UI elements.", "16:9", logo_bytes, country=clean_country, biz_model=clean_model)
+            img_hook_frame = get_or_generate_image_element(company, "video_hook_frame_16x9_v4", f"Clean 16:9 4-second video hook opening frame for {company}.{geo_img_note}{model_img_note} {brand_dna_text} Max 2 clean UI overlays.", "16:9", logo_bytes, country=clean_country, biz_model=clean_model)
 
         update_status(100, "Audit complete.")
     finally:
@@ -1558,18 +1899,38 @@ def run_live_audit(company: str, country: str = ""):
     s_soc = extract_composite_score(e4.get("content", ""), 65)
 
     geo_suffix = f" in {clean_country}" if clean_country else ""
-    return {
-        "company": company,
-        "country": clean_country,
-        "official_url": official_url,
-        "is_showcase": False,
-        "hooks": {
+    if clean_model == "B2B / B2B SaaS":
+        hooks = {
+            "seo": (str(s_seo), f"Capture BOF comparison/alternative searches & AI answers for {company}{geo_suffix}."),
+            "paid": (str(s_paid), f"Tighten demo/SQL conversion & buying-committee funnel flow for {company}{geo_suffix}."),
+            "pricing": (str(s_pri), f"Align seat/usage/ACV tiers, trial-to-paid & expansion levers for {company}{geo_suffix}."),
+            "creative": ("72", f"Test persona-led ROI & workflow hooks with brand logo guardrails for {company}{geo_suffix}."),
+            "social": (str(s_soc), f"Strengthen G2/peer proof, executive voice & support SLAs for {company}{geo_suffix}."),
+        }
+    elif clean_model == "Hybrid / B2B2C":
+        hooks = {
+            "seo": (str(s_seo), f"Align direct & B2B/partner search/AI visibility for {company}{geo_suffix}."),
+            "paid": (str(s_paid), f"Segment direct vs. partner/commercial funnels & CRO for {company}{geo_suffix}."),
+            "pricing": (str(s_pri), f"Balance direct vs. partner margins, bundles & attach for {company}{geo_suffix}."),
+            "creative": ("72", f"Test dual-audience proof hooks with brand logo guardrails for {company}{geo_suffix}."),
+            "social": (str(s_soc), f"Close end-user & partner SLA gaps and scale proof for {company}{geo_suffix}."),
+        }
+    else:
+        hooks = {
             "seo": (str(s_seo), f"Fix crawl/schema gaps and target high-intent search & AI answers for {company}{geo_suffix}."),
             "paid": (str(s_paid), f"Isolate brand vs. non-brand spend and cut funnel drop-offs for {company}{geo_suffix}."),
             "pricing": (str(s_pri), f"Gate promos, tune shipping thresholds, and lift high-margin mix for {company}{geo_suffix}."),
             "creative": ("72", f"Test high-contrast hooks and compliant ad copy with logo guardrails for {company}{geo_suffix}."),
             "social": (str(s_soc), f"Resolve top fulfillment/service friction and activate creators for {company}{geo_suffix}."),
-        },
+        }
+
+    return {
+        "company": company,
+        "country": clean_country,
+        "biz_model": clean_model,
+        "official_url": official_url,
+        "is_showcase": False,
+        "hooks": hooks,
         "brand_logo": brand_logo,
         "brand_intel": brand_dna_text,
         "e1": e1,
@@ -1584,7 +1945,7 @@ def run_live_audit(company: str, country: str = ""):
 
 
 # -----------------------------------------------------------------------------
-# HEADER, GEO-SCOPED LIVE AUDIT ROW & SEPARATE SAMPLE PRESET ROW
+# HEADER, TWO-STEP LIVE AUDIT FLOW & SAMPLE PRESET ROW
 # -----------------------------------------------------------------------------
 st.markdown("""
 <div class="suite-title">Executive Intelligence Suite.</div>
@@ -1605,6 +1966,12 @@ if "last_audit_v5" not in st.session_state:
 if "delivered_email_v1" not in st.session_state:
     st.session_state["delivered_email_v1"] = None
 
+if "pending_model_step" not in st.session_state:
+    st.session_state["pending_model_step"] = None
+
+if "biz_model_selector_v1" not in st.session_state:
+    st.session_state["biz_model_selector_v1"] = "B2C / DTC"
+
 
 def _on_tile_click(m_key: str):
     if st.session_state.get("selected_bento_v5") == m_key:
@@ -1620,50 +1987,99 @@ def _on_collapse_click():
     st.session_state["scroll_to_detail_nonce"] = 0
 
 
-# Line 1: Brand Input + Optional Country / Geo Filter + Run Live Audit
-c_in, c_geo, c_run = st.columns([2.4, 1.35, 1.15], vertical_alignment="center")
+# Step 1 Input Row: Brand Input + Optional Country / Geo Filter + Detect Model
+c_in, c_geo, c_detect = st.columns([2.35, 1.3, 1.35], vertical_alignment="center")
 with c_in:
     target_company = st.text_input(
         "Target Company",
-        placeholder="Brand name (e.g., Enphase Energy, Zepto)",
+        placeholder="Brand name (e.g., Enphase Energy, Chargebee, Zepto)",
         label_visibility="collapsed",
     )
 with c_geo:
     target_country = st.text_input(
         "Target Country",
-        placeholder="Country/Geo (e.g., United States, Brazil)",
+        placeholder="Country/Geo (e.g., United States, India)",
         label_visibility="collapsed",
     )
-with c_run:
-    if st.button("Run Live Audit", use_container_width=True):
+with c_detect:
+    if st.button("Detect Business Model", use_container_width=True):
         if not GEMINI_KEY and not CLAUDE_KEY:
             st.error("Backend API key is not configured in Streamlit Secrets.")
         elif not target_company.strip():
             st.warning("Enter a company name first.")
         else:
-            st.session_state["last_audit_v5"] = run_live_audit(target_company.strip(), target_country.strip())
+            with st.spinner("Inspecting website & detecting business model..."):
+                step1_res = run_step1_detection(target_company.strip(), target_country.strip())
+            st.session_state["pending_model_step"] = step1_res
+            detected_choice = step1_res.get("detected_model", "B2C / DTC")
+            if detected_choice in BUSINESS_MODELS:
+                st.session_state["biz_model_selector_v1"] = detected_choice
+            st.rerun()
+
+# Step 2 Confirmation / Override Bar (appears once Step 1 detects the model)
+pending_step = st.session_state.get("pending_model_step")
+if isinstance(pending_step, dict) and pending_step.get("company"):
+    st.markdown(f"""
+    <div class="model-detect-banner">
+        <strong>Step 2 — Confirm or Override Business Model for {pending_step['company']}</strong>
+        <span style="color:#6E6E73;"> ({pending_step.get('official_url', '')})</span><br/>
+        <span style="color:#424245;">Auto-detected: <strong>{pending_step.get('detected_model', 'B2C / DTC')}</strong> — {pending_step.get('reason', '')}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    m_sel_col, m_run_col = st.columns([3.3, 1.5], vertical_alignment="center")
+    with m_sel_col:
+        chosen_model = st.radio(
+            "Select Business Model",
+            options=BUSINESS_MODELS,
+            key="biz_model_selector_v1",
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+    with m_run_col:
+        if st.button("Run Full Audit", key="run_full_audit_step2", use_container_width=True):
+            st.session_state["last_audit_v5"] = run_live_audit(
+                company=pending_step["company"],
+                country=pending_step.get("country", ""),
+                biz_model=chosen_model,
+                pre_resolved_url=pending_step.get("official_url"),
+            )
             st.session_state["selected_bento_v5"] = None
             st.session_state["scroll_to_detail_nonce"] = 0
             st.session_state["delivered_email_v1"] = None
             st.rerun()
 
-# Line 2: Sample Presets (Apple secondary outline pill buttons)
+# Sample Presets Row (Apple secondary outline pill buttons with explicit business models)
 st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
-p_lbl, p_b1, p_b2, _ = st.columns([2.1, 1.25, 1.35, 1.1], vertical_alignment="center")
+p_lbl, p_b1, p_b2, p_b3 = st.columns([2.05, 0.98, 0.98, 0.99], vertical_alignment="center")
 with p_lbl:
-    st.markdown('<div class="preset-strip-label">Sample Presets (pre-loaded reference audits for instant exploration):</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="preset-strip-label">Samples — Supertails (B2C/DTC) • Enphase US (Hybrid) • Chargebee (B2B SaaS):</div>',
+        unsafe_allow_html=True,
+    )
 with p_b1:
     st.markdown('<span class="sample-btn-hook" style="display:none;"></span>', unsafe_allow_html=True)
-    if st.button("Sample: Supertails", key="preset_supertails", use_container_width=True):
+    if st.button("Supertails • B2C", key="preset_supertails", use_container_width=True):
         st.session_state["last_audit_v5"] = build_sample_showcase("supertails")
+        st.session_state["pending_model_step"] = None
         st.session_state["selected_bento_v5"] = None
         st.session_state["scroll_to_detail_nonce"] = 0
         st.session_state["delivered_email_v1"] = None
         st.rerun()
 with p_b2:
     st.markdown('<span class="sample-btn-hook" style="display:none;"></span>', unsafe_allow_html=True)
-    if st.button("Sample: Enphase US", key="preset_enphase_us", use_container_width=True):
+    if st.button("Enphase US • Hybrid", key="preset_enphase_us", use_container_width=True):
         st.session_state["last_audit_v5"] = build_sample_showcase("enphase")
+        st.session_state["pending_model_step"] = None
+        st.session_state["selected_bento_v5"] = None
+        st.session_state["scroll_to_detail_nonce"] = 0
+        st.session_state["delivered_email_v1"] = None
+        st.rerun()
+with p_b3:
+    st.markdown('<span class="sample-btn-hook" style="display:none;"></span>', unsafe_allow_html=True)
+    if st.button("Chargebee • SaaS", key="preset_chargebee_saas", use_container_width=True):
+        st.session_state["last_audit_v5"] = build_sample_showcase("chargebee")
+        st.session_state["pending_model_step"] = None
         st.session_state["selected_bento_v5"] = None
         st.session_state["scroll_to_detail_nonce"] = 0
         st.session_state["delivered_email_v1"] = None
@@ -1675,11 +2091,12 @@ with p_b2:
 audit = st.session_state.get("last_audit_v5") or build_sample_showcase("supertails")
 company = audit.get("company", "Supertails")
 country_val = audit.get("country", "")
+biz_model_val = audit.get("biz_model", "B2C / DTC")
 official_url = audit.get("official_url", "")
 hooks = audit.get("hooks") or {}
 file_geo_slug = f"_{_slug(country_val)}" if country_val else ""
-pdf_filename = f"{_slug(company)}{file_geo_slug}_executive_brief.pdf"
-current_report_key = f"{_geo_prefix(company, country_val)}__{audit.get('is_showcase', False)}"
+pdf_filename = f"{_slug(company)}{file_geo_slug}_{_model_slug(biz_model_val)}_executive_brief.pdf"
+current_report_key = f"{_scope_prefix(company, country_val, biz_model_val)}__{audit.get('is_showcase', False)}"
 
 st.markdown("---")
 h_left, h_right = st.columns([2.7, 2.1], vertical_alignment="top")
@@ -1692,7 +2109,7 @@ with h_left:
     geo_badge = f"  •  Geo: {country_val}" if country_val else "  •  Geo: Global"
     mode_badge = "Sample Preset" if audit.get("is_showcase") else "Live Audit"
     st.markdown(f"<h2>{logo_img_html}{company}</h2>", unsafe_allow_html=True)
-    st.caption(f"{official_url}  •  {mode_badge}{geo_badge}")
+    st.caption(f"{official_url}  •  {biz_model_val}  •  {mode_badge}{geo_badge}")
 
 with h_right:
     delivered_info = st.session_state.get("delivered_email_v1")
@@ -1737,7 +2154,7 @@ with h_right:
                     if not sent_ok:
                         st.error(f"Could not send email: {send_msg}")
                     else:
-                        logged_ok, log_msg = _log_lead_to_sheet(cleaned_email, company, country_val)
+                        logged_ok, log_msg = _log_lead_to_sheet(cleaned_email, company, country_val, biz_model_val)
                         if not logged_ok:
                             st.warning(f"PDF sent to {cleaned_email}, but sheet logging had a note: {log_msg}")
                         st.session_state["delivered_email_v1"] = {
@@ -1826,7 +2243,7 @@ if selected_bento in key_lookup:
     if not item or not item.get("ok"):
         st.error(item.get("error", "Module unavailable.") if item else "Module unavailable.")
     else:
-        st.caption(f"{item.get('engine', '')}  •  {item.get('age', '')}")
+        st.caption(f"{item.get('engine', '')}  •  {biz_model_val}  •  {item.get('age', '')}")
 
         if selected_bento == "creative" and audit.get("brand_intel"):
             st.markdown("### Brand Design Language & Creative Baseline")
@@ -1849,7 +2266,7 @@ if selected_bento in key_lookup:
 
         if selected_bento == "creative" and GENERATE_IMAGES_DEFAULT:
             imgs = [
-                ("Meta Feed Ad (1:1)", audit.get("img_meta")),
+                ("Paid Social Ad (1:1)", audit.get("img_meta")),
                 ("Display Banner (16:9)", audit.get("img_banner")),
                 ("4-Second Video Hook Keyframe (16:9)", audit.get("img_hook_frame")),
             ]
